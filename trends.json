@@ -1,0 +1,15 @@
+[
+    {
+      "title": "OpenAI's Sora Launch",
+      "type": "news",
+      "content": "OpenAI has launched a new video generation model that is changing how films are made.",
+      "comments": ["This is wild!", "Is it available to the public?"]
+    },
+    {
+      "title": "AI Predicts NBA Finals",
+      "type": "social",
+      "content": "A new AI model predicts the Nuggets will win the NBA finals by 4 games to 2.",
+      "comments": ["Can it bet for me too?", "Big if true."]
+    }
+  ]
+  

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trend Archive</title>
+</head>
+<body>
+    <h1>Archived Trends</h1>
+    <ul>
+        {% for item in archive_list %}
+            <li><strong>{{ item.timestamp }}</strong>: {{ item.title }}</li>
+        {% endfor %}
+    </ul>
+    <a href="/">Back to Home</a>
+</body>
+</html>
