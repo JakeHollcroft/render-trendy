@@ -745,6 +745,5 @@ if __name__ == '__main__':
     fetch_all_trends()  # initial fetch
     thread = threading.Thread(target=scheduler, daemon=True)
     thread.start()
-    # app.run(debug=True, port=5000)
-    app.run()
-    
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
