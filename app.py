@@ -1,20 +1,18 @@
-from flask import Flask, render_template, jsonify
-import requests
-from bs4 import BeautifulSoup
+from flask import Flask, render_template, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from transformers import pipeline
 import os
 import hashlib
 import random
 import threading
 import time
-from datetime import datetime
-import uuid
-from urllib.parse import urljoin
-from datetime import datetime, timezone
-from flask import request, jsonify
-import json
-from flask_sqlalchemy import SQLAlchemy
-from transformers import pipeline
 import logging
+from datetime import datetime, timezone
+import re
+from collections import Counter
+from bs4 import BeautifulSoup
+import requests
+from urllib.parse import urljoin
 
 app = Flask(__name__)
 
@@ -24,10 +22,12 @@ logger = logging.getLogger(__name__)
 trends = []
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
 
-db = SQLAlchemy()
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////opt/render/data/trendy.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
 class Trend(db.Model):
-    id = db.Column(db.String, primary_key=True)  # Use the same ID as in your trend data
+    id = db.Column(db.String, primary_key=True)
     title = db.Column(db.String, nullable=False)
     image = db.Column(db.String)
     description = db.Column(db.Text)
@@ -39,88 +39,43 @@ class Vote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     trend_id = db.Column(db.String, db.ForeignKey('trend.id'), nullable=False)
     ip_address = db.Column(db.String, nullable=False)
-    vote_type = db.Column(db.String, nullable=False)  # 'like' or 'dislike'
+    vote_type = db.Column(db.String, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-
     __table_args__ = (
         db.UniqueConstraint('trend_id', 'ip_address', name='unique_vote_per_ip'),
     )
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///trendy.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db.init_app(app)
-
 with app.app_context():
     db.create_all()
 
-VOTES_FILE = 'votes.json'
+t5_summarizer = pipeline("summarization", model="t5-small")
 
-def load_votes():
-    try:
-        with open(VOTES_FILE, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-
-def save_votes(votes):
-    with open(VOTES_FILE, 'w') as f:
-        json.dump(votes, f, indent=2)
-
-@app.route('/api/vote', methods=['POST'])
-def vote():
-    data = request.json
-    trend_id = data.get('trend_id')
-    vote_type = data.get('vote_type')
-    ip = request.remote_addr
-
-    # Remove restriction on vote_type
-    if not trend_id or not vote_type:
-        return jsonify({'error': 'Missing trend_id or vote_type'}), 400
-
-    existing_vote = Vote.query.filter_by(trend_id=trend_id, ip_address=ip).first()
-    if existing_vote:
-        return jsonify({'error': 'You have already voted for this trend'}), 403
-
-    vote = Vote(trend_id=trend_id, ip_address=ip, vote_type=vote_type)
-    db.session.add(vote)
-    db.session.commit()
-
-    # Count all vote types for the trend
-    vote_counts = db.session.query(
-        Vote.vote_type,
-        db.func.count().label('count')
-    ).filter_by(trend_id=trend_id).group_by(Vote.vote_type).all()
-
-    return jsonify({v.vote_type: v.count for v in vote_counts})
+STOP_WORDS = {
+    'with', 'from', 'this', 'that', 'have', 'will', 'more', 'some', 'what', 'when',
+    'where', 'which', 'into', 'over', 'under', 'about', 'there', 'their', 'they',
+    'were', 'been', 'being', 'than', 'then', 'once', 'here', 'after', 'before',
+    'during', 'while', 'because', 'since', 'until', 'again', 'against', 'between'
+}
 
 def generate_stable_id(trend):
-    """
-    Generate a deterministic ID for a trend using title and link.
-    """
     key = (trend.get("title", "") + trend.get("link", "")).strip()
     return hashlib.md5(key.encode("utf-8")).hexdigest()
 
 def time_ago(timestamp_str):
-    # Parse the ISO timestamp string back to datetime object
     past = datetime.fromisoformat(timestamp_str).replace(tzinfo=timezone.utc)
     now = datetime.utcnow().replace(tzinfo=timezone.utc)
     diff = now - past
-
     seconds = diff.total_seconds()
-    minutes = seconds // 60
-    hours = seconds // 3600
-    days = seconds // 86400
-
     if seconds < 60:
         return f"{int(seconds)} seconds ago"
-    elif minutes < 60:
-        return f"{int(minutes)} minutes ago"
-    elif hours < 24:
-        return f"{int(hours)} hours ago"
+    elif seconds < 3600:
+        return f"{int(seconds // 60)} minutes ago"
+    elif seconds < 86400:
+        return f"{int(seconds // 3600)} hours ago"
     else:
-        return f"{int(days)} days ago"
-app.jinja_env.globals.update(time_ago=time_ago)
+        return f"{int(seconds // 86400)} days ago"
 
+app.jinja_env.globals.update(time_ago=time_ago)
 
 def get_hacker_news():
     url = 'https://news.ycombinator.com/'
@@ -916,170 +871,74 @@ def fetch_reuters_trending():
         print(f"Error fetching Reuters trending: {e}")
         return []
 # ---------------------------- AGGREGATE AND CACHE ---------------------------- #
-@app.route('/trend/<trend_id>')
-def trend_detail(trend_id):
-    trend = next((t for t in trends if t['id'] == trend_id), None)
-    if not trend:
-        return render_template('404.html'), 404
-
-    summary = generate_summary(trend)
-    vote_counts = db.session.query(
-        Vote.vote_type,
-        db.func.count().label('count')
-    ).filter_by(trend_id=trend_id).group_by(Vote.vote_type).all()
-
-    vote_counts_dict = {v.vote_type: v.count for v in vote_counts}
-
-    return render_template(
-        'trend_detail.html',
-        trend=trend,
-        summary=summary,
-        vote_counts=vote_counts_dict
-    )
-    
-t5_summarizer = pipeline("summarization", model="t5-small")
-
-STOP_WORDS = {
-    'with', 'from', 'this', 'that', 'have', 'will', 'more', 'some', 'what', 'when',
-    'where', 'which', 'into', 'over', 'under', 'about', 'there', 'their', 'they',
-    'were', 'been', 'being', 'than', 'then', 'once', 'here', 'after', 'before',
-    'during', 'while', 'because', 'since', 'until', 'again', 'against', 'between'
-}
-
 def generate_summary(trend):
     try:
         title = str(trend.get("title") or "Untitled")
         description = str(trend.get("description") or "")
         source = str(trend.get("source") or "an unknown source")
-
-        # Clean input: remove hashtags and normalize spaces
         text = f"{title}. {description}".strip()
-        text = re.sub(r'#\w+', '', text)  # Remove existing hashtags
-        text = re.sub(r'\s+', ' ', text)  # Normalize spaces
-        text = text.strip(' .|')
-
+        text = re.sub(r'#\w+', '', text)
+        text = re.sub(r'\s+', ' ', text).strip(' .|')
         input_length = len(text.split())
         max_length = min(100, max(20, input_length * 2))
         min_length = min(20, max(5, input_length // 2))
-
         logger.debug(f"Input text: '{text}', input_length={input_length}, max_length={max_length}, min_length={min_length}")
-
-        # Generate summary
         if input_length < 5:
             logger.debug("Input too short, using custom summary")
             summary_text = f"'{title}' is trending on {source}."
         else:
             result = t5_summarizer(text, max_length=max_length, min_length=min_length, do_sample=False, truncation=True)
             summary_text = result[0]['summary_text'].strip()
-
         logger.debug(f"Summary output: '{summary_text}'")
-
-        # Extract keywords from title, description, and summary for hashtags
         all_text = f"{title} {description} {summary_text}".lower()
         words = re.findall(r'\w+', all_text)
-        # Filter out stop words and short words, then get most common
         keywords = [word for word in words if len(word) > 3 and word not in STOP_WORDS]
         keyword_counts = Counter(keywords).most_common(3)
-        selected_keywords = [kw for kw, _ in keyword_counts] or ['trending', source.lower()]  # Fallback to source or generic term
-
+        selected_keywords = [kw for kw, _ in keyword_counts] or ['trending', source.lower()]
         hashtags = " ".join(f"#{kw.capitalize()}" for kw in selected_keywords)
         meta_keywords = ", ".join(selected_keywords)
         meta_description = f"{summary_text[:160]}{'...' if len(summary_text) > 160 else ''}"
-
         return {
             "text": summary_text,
             "hashtags": hashtags,
             "meta_description": meta_description,
             "meta_keywords": meta_keywords
         }
-
     except Exception as e:
         logger.error(f"Error generating summary: {e}", exc_info=True)
-
-        # Fallback summary
         source = str(trend.get("source") or "an unknown source")
         title = str(trend.get("title") or "Untitled")
         keywords = [kw for kw in title.lower().split() if len(kw) > 3 and kw not in STOP_WORDS][:3]
         if not keywords:
-            keywords = ['trending', source.lower()]  # Fallback
+            keywords = ['trending', source.lower()]
         hashtags = " ".join(f"#{kw.capitalize()}" for kw in keywords)
         meta_keywords = ", ".join(keywords)
         fallback_summary = f"'{title}' is trending on {source}."
         meta_description = f"{fallback_summary[:160]}{'...' if len(fallback_summary) > 160 else ''}"
-
-        logger.debug(f"Fallback summary: '{fallback_summary}', hashtags: '{hashtags}'")
-
         return {
             "text": fallback_summary,
             "hashtags": hashtags,
             "meta_description": meta_description,
             "meta_keywords": meta_keywords
         }
-        
-def fetch_all_trends():
-    global trends
-    all_trends = []
-    funcs = [
-        get_hacker_news,
-        get_github_trending,
-        get_reddit_top,
-        get_techcrunch,
-        get_stackoverflow_trending,
-        get_devto_latest,
-        get_medium_technology,
-        get_lobsters,
-        get_slashdot,
-        get_digg_popular,
-        get_bbc_trending,
-        get_twitter_trending,
-        lambda: get_youtube_trending(YOUTUBE_API_KEY),
-        get_ars_technica,
-        get_wired,
-        fetch_goodreads_trending,
-        fetch_steam_charts,
-        scrape_spotify_charts,
-        get_billboard_trending,
-        get_imdb_trending,
-        get_cnn_trending,
-        fetch_reuters_trending
-    ]
-    for func in funcs:
-        try:
-            all_trends.extend(func())
-        except Exception as e:
-            print(f"Error in {func.__name__}: {e}")
-
-    all_trends.sort(key=lambda x: x['timestamp'], reverse=True)
-    trends = all_trends
-
-
-def scheduler():
-    while True:
-        print(f"[{datetime.utcnow()}] Fetching latest trends...")
-        fetch_all_trends()
-        time.sleep(30 * 60)  # every 30 minutes
-
-# ---------------------------- FLASK ROUTES ---------------------------- #
 
 @app.route('/')
 def home():
+    logger.debug("Rendering home page")
     global trends
     random.shuffle(trends)
     unique_sources = sorted(set(trend['source'] for trend in trends))
-
-    # Fetch all vote types
     vote_counts = db.session.query(
         Vote.trend_id,
         Vote.vote_type,
         db.func.count().label('count')
     ).group_by(Vote.trend_id, Vote.vote_type).all()
-
     vote_counts_dict = {}
     for v in vote_counts:
         if v.trend_id not in vote_counts_dict:
             vote_counts_dict[v.trend_id] = {}
         vote_counts_dict[v.trend_id][v.vote_type] = v.count
-
+    logger.debug(f"Trends count: {len(trends)}, Sources: {unique_sources}")
     return render_template(
         'index.html',
         trends=trends,
@@ -1089,21 +948,79 @@ def home():
 
 @app.route('/api/trends')
 def api_trends():
+    logger.debug("Serving /api/trends")
     return jsonify(trends[:2000])
 
-# ---------------------------- MAIN ---------------------------- #
-####PROD####
+@app.route('/trend/<trend_id>')
+def trend_detail(trend_id):
+    logger.debug(f"Rendering trend detail for ID: {trend_id}")
+    trend = next((t for t in trends if t['id'] == trend_id), None)
+    if not trend:
+        logger.warning(f"Trend not found: {trend_id}")
+        return render_template('404.html'), 404
+    summary = generate_summary(trend)
+    vote_counts = db.session.query(
+        Vote.vote_type,
+        db.func.count().label('count')
+    ).filter_by(trend_id=trend_id).group_by(Vote.vote_type).all()
+    vote_counts_dict = {v.vote_type: v.count for v in vote_counts}
+    return render_template(
+        'trend_detail.html',
+        trend=trend,
+        summary=summary,
+        vote_counts=vote_counts_dict
+    )
+
+@app.route('/api/vote', methods=['POST'])
+def vote():
+    logger.debug("Processing vote request")
+    data = request.json
+    trend_id = data.get('trend_id')
+    vote_type = data.get('vote_type')
+    ip = request.remote_addr
+    if not trend_id or not vote_type:
+        logger.error(f"Missing trend_id or vote_type: {data}")
+        return jsonify({'error': 'Missing trend_id or vote_type'}), 400
+    existing_vote = Vote.query.filter_by(trend_id=trend_id, ip_address=ip).first()
+    if existing_vote:
+        logger.warning(f"Duplicate vote from IP {ip} for trend {trend_id}")
+        return jsonify({'error': 'You have already voted for this trend'}), 403
+    vote = Vote(trend_id=trend_id, ip_address=ip, vote_type=vote_type)
+    db.session.add(vote)
+    db.session.commit()
+    vote_counts = db.session.query(
+        Vote.vote_type,
+        db.func.count().label('count')
+    ).filter_by(trend_id=trend_id).group_by(Vote.vote_type).all()
+    logger.debug(f"Vote recorded for trend {trend_id}: {vote_type}")
+    return jsonify({v.vote_type: v.count for v in vote_counts})
+
+def fetch_all_trends():
+    global trends
+    all_trends = []
+    funcs = [get_hacker_news]  # Add other functions as implemented
+    for func in funcs:
+        try:
+            logger.debug(f"Fetching trends from {func.__name__}")
+            trends_from_func = func()
+            logger.debug(f"Got {len(trends_from_func)} trends from {func.__name__}")
+            all_trends.extend(trends_from_func)
+        except Exception as e:
+            logger.error(f"Error in {func.__name__}: {e}", exc_info=True)
+    all_trends.sort(key=lambda x: x['timestamp'], reverse=True)
+    trends = all_trends
+    logger.debug(f"Total trends fetched: {len(trends)}")
+
+def scheduler():
+    while True:
+        logger.info(f"[{datetime.utcnow()}] Fetching latest trends...")
+        fetch_all_trends()
+        time.sleep(30 * 60)
+
 if __name__ == '__main__':
-    fetch_all_trends()  # initial fetch
+    logger.info("Starting application")
+    fetch_all_trends()
     thread = threading.Thread(target=scheduler, daemon=True)
     thread.start()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
-####TEST####
-# if __name__ == '__main__':
-#     fetch_all_trends()  # initial fetch
-#     thread = threading.Thread(target=scheduler, daemon=True)
-#     thread.start()
-#     port = int(os.environ.get('PORT', 5000))
-#     app.run(host='0.0.0.0', port=port)
