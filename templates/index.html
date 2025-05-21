@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Trendy - Trending Across the Web</title>
+  <title>Trendii - Trending Across the Web</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    #source-filters label {
+        #source-filters label {
   display: flex;
   align-items: center;
   background-color: #e0f2f1;
@@ -88,6 +88,18 @@
       border-radius: 8px;
       display: inline-block;
       color: white;
+    }
+    .source.ReutersTrending {
+      background-color: #2f3e46;
+    }
+    .source.CNNTrending {
+      background-color: #CC0000;
+    }
+    .source.IMDbTrending {
+      background-color: #F5DE50;
+    }
+    .source.BillboardTrending {
+      background-color: #f76060;
     }
     .source.SpotifyTrending {
       background-color: #1DB954;
@@ -213,19 +225,99 @@
     padding: 0.3rem 0.6rem;
   }
 }
-
+.card.HackerTrending { border-left: 4px solid #ff6600; background: #fff6f0; }
+.card.GithubTrending { border-left: 4px solid #24292e; background: #f8f9fa; }
+.card.RedditTrending { border-left: 4px solid #ff4500; background: #fff0f0; }
+.card.YouTubeTrending { border-left: 4px solid #cc0000; background: #ffe6e6; }
+.card.XTrending { border-left: 4px solid #1da1f2; background: #e6f3ff; }
+.card.BBCTrending { border-left: 4px solid #bb1919; background: #ffe6e6; }
+.card.DiggTrending { border-left: 4px solid #000000; background: #f8f9fa; }
+.card.SlashdotTrending { border-left: 4px solid #026664; background: #e6fafa; }
+.card.TechcrunchTrending { border-left: 4px solid #0f9d58; background: #e6f7ec; }
+.card.StackoverflowTrending { border-left: 4px solid #f48024; background: #fff5e6; }
+.card.DevtoTrending { border-left: 4px solid #0a0a0a; background: #f8f9fa; }
+.card.MediumtechTrending { border-left: 4px solid #00ab6c; background: #e6f7ec; }
+.card.LobstersTrending { border-left: 4px solid #a52a2a; background: #ffe6e6; }
+.card.WiredTrending { border-left: 4px solid #ff0000; background: #ffe6e6; }
+.card.ArsTechnicaTrending { border-left: 4px solid #ff4e00; background: #fff5e6; }
+.card.GoodreadsTrending { border-left: 4px solid #372213; background: #f8f9fa; }
+.card.SteamChartsTrending { border-left: 4px solid #171a21; background: #e6e9f0; }
+.card.SpotifyTrending { border-left: 4px solid #1db954; background: #e6f7ec; }
+.card.BillboardTrending { border-left: 4px solid #f76060; background: #fff0f0; }
+.card.IMDbTrending { border-left: 4px solid #f5de50; background: #fffbe6; }
+.card.CNNTrending { border-left: 4px solid #cc0000; background: #ffe6e6; }
+.card.ReutersTrending { border-left: 4px solid #2f3e46; background: #e6e9f0; }
+:root {
+  --bg-color: linear-gradient(to bottom, #e0f7fa, #ffffff);
+  --card-bg: #ffffff;
+  --text-color: #333;
+  --header-bg: #00796b;
+  --header-text: #ffffff;
+  --filter-bg: #00796b;
+  --filter-text: #ffffff;
+  --filter-label-bg: #e0f2f1;
+  --filter-label-text: #004d40;
+}
+[data-theme="dark"] {
+  --bg-color: linear-gradient(to bottom, #1a1a1a, #2c2c2c);
+  --card-bg: #2c2c2c;
+  --text-color: #e0e0e0;
+  --header-bg: #004d40;
+  --header-text: #e0e0e0;
+  --filter-bg: #004d40;
+  --filter-text: #e0e0e0;
+  --filter-label-bg: #455a64;
+  --filter-label-text: #e0e0e0;
+}
+[data-theme="fun"] {
+  --bg-color: linear-gradient(to bottom, #ffeb3b, #ffca28);
+  --card-bg: #fff9c4;
+  --text-color: #d81b60;
+  --header-bg: #f06292;
+  --header-text: #ffffff;
+  --filter-bg: #f06292;
+  --filter-text: #ffffff;
+  --filter-label-bg: #fce4ec;
+  --filter-label-text: #d81b60;
+}
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+header {
+  background: var(--header-bg);
+  color: var(--header-text);
+}
+#filter-bar {
+  background: var(--filter-bg);
+  color: var(--filter-text);
+}
+#source-filters label {
+  background: var(--filter-label-bg);
+  color: var(--filter-label-text);
+}
+#source-filters label:hover {
+  background: var(--filter-label-bg);
+  filter: brightness(1.2);
+}
+.card {
+  background: var(--card-bg);
+}
   </style>
 </head>
 <body>
-  <header>🔥 Trendy - Trending Across the Web</header>
+  <header>
+  🔥 Trendii Now - Trending Across the Web
+  <button id="theme-toggle" class="btn btn-sm btn-outline-light ms-3">Toggle Theme</button>
+</header>
   <div id="filter-bar" style="background:#00796b; padding: 0.5rem; text-align:center;">
   <section style="padding: 1rem; max-width: 1200px; margin: auto;">
   <strong>Filter by Source:</strong>
   <div id="source-filters" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
     <label style="font-weight: 500;">
-  <input type="checkbox" id="all-sources" checked>
-  All Sources
-</label>
+      <input type="checkbox" id="all-sources" checked>
+      All Sources
+    </label>
     {% for source in unique_sources %}
       <label style="font-weight: 500;">
         <input type="checkbox" value="{{ source }}" class="source-checkbox" checked>
@@ -233,32 +325,26 @@
       </label>
     {% endfor %}
   </div>
-</section>
-
-
-</div>
+  </section>
+  </div>
 
   <main class="container">
     {% for trend in trends %}
-<article class="card" data-id="{{ trend.id }}">
-  <h2>{{ trend.title }}</h2>
-
+<article class="card {{ trend.source_class }}" data-id="{{ trend.id }}">
+  <h2><a href="/trend/{{ trend.id }}">{{ trend.title }}</a></h2>
   {% if trend.image %}
     <img src="{{ trend.image }}" alt="Image for {{ trend.title }}" />
   {% endif %}
-
   {% if trend.description %}
     <p class="description">{{ trend.description }}</p>
   {% endif %}
-
   <span class="source {{ trend.source_class }}">{{ trend.source }}</span>
   <p>Trending: {{ time_ago(trend.timestamp) }}</p>
-  <div class="votes">
-    <button class="vote-btn" data-type="like">👍 <span class="like-count">{{ vote_counts.get(trend.id, {}).get('like', 0) }}</span></button>
-<button class="vote-btn" data-type="dislike">👎 <span class="dislike-count">{{ vote_counts.get(trend.id, {}).get('dislike', 0) }}</span></button>
-
+  <div class="votes d-flex gap-2">
+    <button class="vote-btn btn btn-outline-primary btn-sm" data-type="thumbs_up">👍 <span class="vote-count" data-type="thumbs_up">{{ vote_counts.get(trend.id, {}).get('thumbs_up', 0) }}</span></button>
+    <button class="vote-btn btn btn-outline-danger btn-sm" data-type="fire">🔥 <span class="vote-count" data-type="fire">{{ vote_counts.get(trend.id, {}).get('fire', 0) }}</span></button>
+    <button class="vote-btn btn btn-outline-info btn-sm" data-type="mind_blown">😲 <span class="vote-count" data-type="mind_blown">{{ vote_counts.get(trend.id, {}).get('mind_blown', 0) }}</span></button>
   </div>
-
   <a href="{{ trend.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-3 align-self-start">See More</a>
 </article>
 {% endfor %}
@@ -297,32 +383,46 @@
   // Initial filtering in case something renders late
   window.addEventListener('DOMContentLoaded', filterArticles);
 
-  document.querySelectorAll('.vote-btn').forEach(button => {
-  button.addEventListener('click', () => {
-    const trendDiv = button.closest('.card');
-    const trendId = trendDiv.getAttribute('data-id');
-    const voteType = button.getAttribute('data-type');
+ document.querySelectorAll('.vote-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      const trendDiv = button.closest('.card');
+      const trendId = trendDiv.getAttribute('data-id');
+      const voteType = button.getAttribute('data-type');
 
-    fetch('/api/vote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trend_id: trendId, vote_type: voteType })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (!data.error) {
-        // update counts
-        trendDiv.querySelector('.like-count').textContent = data.like;
-        trendDiv.querySelector('.dislike-count').textContent = data.dislike;
-      } else {
-        alert('Error: ' + data.error);
-      }
+      fetch('/api/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trend_id: trendId, vote_type: voteType })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) {
+          // Update all vote counts for this trend
+          trendDiv.querySelectorAll('.vote-count').forEach(span => {
+            const type = span.getAttribute('data-type');
+            span.textContent = data[type] || 0;
+          });
+        } else {
+          alert('Error: ' + data.error);
+        }
+      });
     });
   });
-});
-
 </script>
+<script>
+  // ... (keep existing filter and vote code) ...
 
-
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const current = localStorage.getItem('theme') || 'light';
+    const next = current === 'light' ? 'dark' : current === 'dark' ? 'fun' : 'light';
+    setTheme(next);
+  });
+  // Apply saved theme on load
+  setTheme(localStorage.getItem('theme') || 'light');
+</script>
 </body>
 </html>
