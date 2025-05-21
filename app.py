@@ -1093,17 +1093,17 @@ def api_trends():
 
 # ---------------------------- MAIN ---------------------------- #
 ####PROD####
-# if __name__ == '__main__':
-#     fetch_all_trends()  # initial fetch
-#     thread = threading.Thread(target=scheduler, daemon=True)
-#     thread.start()
-#     port = int(os.environ.get('PORT', 5000))
-#     app.run(host='0.0.0.0', port=port)
-
-####TEST####
 if __name__ == '__main__':
     fetch_all_trends()  # initial fetch
     thread = threading.Thread(target=scheduler, daemon=True)
     thread.start()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
+####TEST####
+# if __name__ == '__main__':
+#     fetch_all_trends()  # initial fetch
+#     thread = threading.Thread(target=scheduler, daemon=True)
+#     thread.start()
+#     port = int(os.environ.get('PORT', 5000))
+#     app.run(host='0.0.0.0', port=port)
