@@ -32,7 +32,15 @@ SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_SECRET')
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'trendy.db')
 
 ####PROD####
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////opt/render/data/trendy.db'
+
+if os.getenv('RENDER'):  # Detect Render environment
+    db_path = '/opt/render/data/trendy.db'
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)  # Create directory if it doesn't exist
+else:
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    db_path = os.path.join(basedir, 'trendy.db')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
