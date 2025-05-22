@@ -22,8 +22,10 @@ logger = logging.getLogger(__name__)
 
 trends = []
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
-SPOTIFY_CLIENT_ID = os.getenv('spotify_id')  
-SPOTIFY_CLIENT_SECRET = os.getenv('spotify_secret')
+
+SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_ID')
+SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_SECRET')
+
 
 ####SAND####import os
 # basedir = os.path.abspath(os.path.dirname(__file__))
@@ -683,9 +685,7 @@ def get_spotify_charts(client_id, client_secret):
         logger.warning("Spotify Client ID or Client Secret not provided, skipping Spotify trends")
         return []
     try:
-        # Authenticate with Spotify API
-        credentials = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
-        sp = spotipy.Spotify(client_credentials_manager=credentials)
+        # Authenticate with Spotify APIs
         
         # Fetch Global Top 50 playlist
         playlist_id = '37i9dQZEVXbMDoHDwVN2tF'  # Spotify Global Top 50
