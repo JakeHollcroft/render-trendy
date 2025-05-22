@@ -14,36 +14,25 @@ from bs4 import BeautifulSoup
 import requests
 import uuid
 from urllib.parse import urljoin
+from flask_cors import CORS
 
-app = Flask(__name__)
-
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging for Render
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(name)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-trends = []
-YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
+app = Flask(__name__)
+# Support Render and custom domain
+CORS(app, resources={r"/*": {"origins": ["https://trendiinow.com", "https://www.trendiinow.com", "https://trendy-wqzi.onrender.com"]}})
 
-SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_ID')
-SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_SECRET')
-
-
-####SAND####import os
-# basedir = os.path.abspath(os.path.dirname(__file__))
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'trendy.db')
-
-####PROD####
-
-if os.getenv('RENDER'):  # Detect Render environment
-    db_path = '/opt/render/data/trendy.db'
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)  # Create directory if it doesn't exist
-else:
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    db_path = os.path.join(basedir, 'trendy.db')
-
+# Database configuration for Render
+db_path = '/opt/render/data/trendy.db' if os.getenv('RENDER') else os.path.join(os.path.abspath(os.path.dirname(__file__)), 'trendy.db')
+if os.getenv('RENDER'):
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)  # Ensure directory exists
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+# Database models
 class Trend(db.Model):
     id = db.Column(db.String, primary_key=True)
     title = db.Column(db.String, nullable=False)
@@ -65,6 +54,7 @@ class Vote(db.Model):
 
 with app.app_context():
     db.create_all()
+    logger.debug(f"Vote table count after initialization: {Vote.query.count()}")
 
 t5_summarizer = pipeline("summarization", model="t5-small")
 
@@ -935,6 +925,73 @@ def generate_summary(trend):
             "meta_keywords": meta_keywords
         }
 
+def fetch_all_trends():
+    global trends
+    all_trends = []
+    funcs = [
+        get_hacker_news,
+        get_github_trending,
+        get_reddit_top,
+        get_techcrunch,
+        get_stackoverflow_trending,
+        get_devto_latest,
+        get_medium_technology,
+        get_lobsters,
+        get_slashdot,
+        get_digg_popular,
+        get_bbc_trending,
+        lambda: get_youtube_trending(YOUTUBE_API_KEY),
+        get_ars_technica,
+        get_wired,
+        get_goodreads_trending,
+        get_steam_charts,
+        lambda: get_spotify_charts(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET),
+        get_billboard_trending,
+        get_imdb_trending,
+        get_cnn_trending
+    ]
+    logger.debug(f"Number of source functions: {len(funcs)}")
+    if not funcs:
+        logger.error("No source functions defined in fetch_all_trends")
+        return []
+
+    for func in funcs:
+        try:
+            logger.debug(f"Attempting to fetch from source: {func.__name__}")
+            trends_from_func = func()
+            if trends_from_func is None:
+                logger.warning(f"Source {func.__name__} returned None")
+                continue
+            if not isinstance(trends_from_func, list):
+                logger.error(f"Source {func.__name__} returned non-list: {type(trends_from_func)}")
+                continue
+            logger.debug(f"Got {len(trends_from_func)} trends from {func.__name__}")
+            all_trends.extend(trends_from_func)
+        except Exception as e:
+            logger.error(f"Error fetching from {func.__name__}: {e}", exc_info=True)
+
+    all_trends.sort(key=lambda x: x['timestamp'] if isinstance(x['timestamp'], datetime) else datetime.fromisoformat(x['timestamp']), reverse=True)
+    trends = all_trends
+    logger.debug(f"Total trends fetched: {len(trends)}")
+    return trends
+
+def background_fetch():
+    logger.debug("Background fetch thread started")
+    while True:
+        try:
+            fetch_all_trends()
+            logger.debug("Background fetch completed")
+        except Exception as e:
+            logger.error(f"Background fetch error: {e}", exc_info=True)
+        time.sleep(3600)
+
+if os.getenv('RENDER'):
+    logger.debug("Starting background fetch thread on Render")
+    threading.Thread(target=background_fetch, daemon=True).start()
+else:
+    logger.debug("Skipping background thread for local development")
+
+# Routes
 @app.route('/')
 def home():
     logger.debug("Rendering home page")
@@ -1008,62 +1065,68 @@ def vote():
     logger.debug(f"Vote recorded for trend {trend_id}: {vote_type}")
     return jsonify({v.vote_type: v.count for v in vote_counts})
 
-def fetch_all_trends():
-    global trends
-    all_trends = []
-    funcs = [
-        get_hacker_news,
-        get_github_trending,
-        get_reddit_top,
-        get_techcrunch,
-        get_stackoverflow_trending,
-        get_devto_latest,
-        get_medium_technology,
-        get_lobsters,
-        get_slashdot,
-        get_digg_popular,
-        get_bbc_trending,
-        lambda: get_youtube_trending(YOUTUBE_API_KEY),
-        get_ars_technica,
-        get_wired,
-        get_goodreads_trending,
-        get_steam_charts,
-        lambda: get_spotify_charts(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET),
-        get_billboard_trending,
-        get_imdb_trending,
-        get_cnn_trending
-    ]
-    for func in funcs:
-        try:
-            logger.debug(f"Fetching trends from {func.__name__}")
-            trends_from_func = func()
-            logger.debug(f"Got {len(trends_from_func)} trends from {func.__name__}")
-            all_trends.extend(trends_from_func)
-        except Exception as e:
-            logger.error(f"Error in {func.__name__}: {e}", exc_info=True)
-    all_trends.sort(key=lambda x: x['timestamp'], reverse=True)
-    trends = all_trends
-    logger.debug(f"Total trends fetched: {len(trends)}")
-
-def scheduler():
-    while True:
-        logger.info(f"[{datetime.utcnow()}] Fetching latest trends...")
+@app.route('/fetch-trends')
+def fetch_trends():
+    try:
         fetch_all_trends()
-        time.sleep(30 * 60)
+        logger.debug("Manual trend fetch completed")
+        return jsonify({"status": "success", "trend_count": len(trends)})
+    except Exception as e:
+        logger.error(f"Manual trend fetch failed: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/test-vote')
+def test_vote():
+    try:
+        test_trend_id = hashlib.md5("test_trend".encode()).hexdigest()
+        trend = Trend.query.get(test_trend_id)
+        if not trend:
+            trend = Trend(
+                id=test_trend_id,
+                title="Test Trend",
+                description="Test trend for voting",
+                source="Test",
+                timestamp=datetime.utcnow()
+            )
+            db.session.add(trend)
+            db.session.commit()
+            logger.debug("Test trend inserted successfully")
+
+        test_ip = "127.0.0.1"
+        vote = Vote.query.filter_by(trend_id=test_trend_id, ip_address=test_ip).first()
+        if not vote:
+            vote = Vote(
+                trend_id=test_trend_id,
+                ip_address=test_ip,
+                vote_type="upvote",
+                timestamp=datetime.utcnow()
+            )
+            db.session.add(vote)
+            db.session.commit()
+            logger.debug("Test vote inserted successfully")
+
+        vote_count = Vote.query.count()
+        logger.debug(f"Total votes in database: {vote_count}")
+        return jsonify({"status": "success", "vote_count": vote_count})
+    except Exception as e:
+        logger.error(f"Vote database test failed: {e}", exc_info=True)
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/debug-request')
+def debug_request():
+    logger.debug(f"Request host: {request.host}, URL: {request.url}")
+    return jsonify({"host": request.host, "url": request.url})
+         
 ####PROD####
-if __name__ == '__main__':
+# if __name__ == '__main__':
     logger.info("Starting application")
     fetch_all_trends()
-    thread = threading.Thread(target=scheduler, daemon=True)
-    thread.start()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
     
 ####SAND####
 # if __name__ == '__main__':
-#     logger.info("Starting application in sandbox mode")
+#     logger.info("Starting application in local mode")
 #     fetch_all_trends()
-#     thread = threading.Thread(target=scheduler, daemon=True)
-#     thread.start()
 #     app.run(host='127.0.0.1', port=5000, debug=True)
