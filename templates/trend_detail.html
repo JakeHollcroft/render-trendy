@@ -38,6 +38,27 @@
     --header-bg: #004d40;
     --header-text: #e0e0e0;
   }
+  [data-theme="dark"] .text-muted {
+    color: #a0a0a0 !important; /* Lighter gray for muted text in dark theme */
+  }
+  [data-theme="dark"] .card-title,
+  [data-theme="dark"] h4,
+  [data-theme="dark"] .summary-block,
+  [data-theme="dark"] a {
+    color: #e0e0e0 !important; /* Ensure all text is light in dark theme */
+  }
+  [data-theme="dark"] .btn-outline-primary,
+  [data-theme="dark"] .btn-outline-danger,
+  [data-theme="dark"] .btn-outline-info {
+    color: #e0e0e0 !important; /* Light text for buttons */
+    border-color: #e0e0e0 !important; /* Light border for buttons */
+  }
+  [data-theme="dark"] .btn-outline-primary:hover,
+  [data-theme="dark"] .btn-outline-danger:hover,
+  [data-theme="dark"] .btn-outline-info:hover {
+    background-color: #555 !important; /* Hover background for contrast */
+    color: #ffffff !important; /* White text on hover */
+  }
   [data-theme="fun"] {
     --bg-color: #fff9c4;
     --card-bg: #fff9c4;

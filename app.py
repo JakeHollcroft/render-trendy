@@ -12,6 +12,7 @@ import re
 from collections import Counter
 from bs4 import BeautifulSoup
 import requests
+import uuid
 from urllib.parse import urljoin
 
 app = Flask(__name__)
@@ -21,7 +22,14 @@ logger = logging.getLogger(__name__)
 
 trends = []
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
+SPOTIFY_CLIENT_ID = os.getenv('spotify_id')  
+SPOTIFY_CLIENT_SECRET = os.getenv('spotify_secret')
 
+####SAND####import os
+# basedir = os.path.abspath(os.path.dirname(__file__))
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'trendy.db')
+
+####PROD####
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////opt/render/data/trendy.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -79,751 +87,748 @@ app.jinja_env.globals.update(time_ago=time_ago)
 
 def get_hacker_news():
     url = 'https://news.ycombinator.com/'
-    soup = BeautifulSoup(requests.get(url).text, 'html.parser')
-    items = soup.select('.athing')
-    results = []
-    for item in items[:5]:
-        title_tag = item.select_one('.titleline')
-        if not title_tag:
-            continue
-        title = title_tag.text
-        link = title_tag.find('a')['href']
-        if link.startswith('item?id='):
-            link = urljoin(url, link)
-        elif not link.startswith(('http://', 'https://')):
-            link = 'https://' + link.lstrip('/')
-
-        trend = {
-            'title': title,
-            'description': '',
-            'link': link,
-            'source': 'From Hacker News',
-            'source_class': 'HackerTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-
-    return results
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('.athing')
+        results = []
+        for item in items[:25]:
+            title_tag = item.select_one('.titleline')
+            if not title_tag:
+                continue
+            title = title_tag.text.strip()
+            link = title_tag.find('a')['href']
+            if link.startswith('item?id='):
+                link = urljoin(url, link)
+            elif not link.startswith(('http://', 'https://')):
+                link = 'https://' + link.lstrip('/')
+            trend = {
+                'title': title,
+                'description': '',
+                'link': link,
+                'source': 'From Hacker News',
+                'source_class': 'HackerTrending',
+                'image': '/static/images/default_trendy.svg',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Hacker News: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Hacker News trends: {e}", exc_info=True)
+        return []
 
 def get_github_trending():
     url = 'https://github.com/trending'
-    soup = BeautifulSoup(requests.get(url).text, 'html.parser')
-    items = soup.select('article.Box-row')
-    results = []
-    for item in items[:5]:
-        repo = item.select_one('h2').text.strip().replace('\n', '').replace(' ', '')
-        link = 'https://github.com' + item.select_one('h2 a')['href']
-        description_tag = item.select_one('p')
-        description = description_tag.text.strip() if description_tag else ''
-        title = f"{repo}"
-
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From GitHub',
-            'source_class': 'GithubTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('article.Box-row')
+        results = []
+        for item in items[:25]:
+            repo = item.select_one('h2').text.strip().replace('\n', '').replace(' ', '')
+            link = 'https://github.com' + item.select_one('h2 a')['href']
+            description_tag = item.select_one('p')
+            description = description_tag.text.strip() if description_tag else ''
+            title = f"{repo}"
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From GitHub',
+                'source_class': 'GithubTrending',
+                'image': '/static/images/default_trendy.svg',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"GitHub: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching GitHub trends: {e}", exc_info=True)
+        return []
 
 def get_reddit_top():
     headers = {'User-agent': 'TrendyScraper 1.0'}
-    url = 'https://www.reddit.com/r/popular/top.json?limit=10'
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
+    url = 'https://www.reddit.com/r/popular/top.json?limit=25'
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        json_data = response.json()
+        results = []
+        for item in json_data.get('data', {}).get('children', [])[:25]:
+            data = item['data']
+            reddit_url = 'https://reddit.com' + data.get('permalink', '')
+            title = data.get('title', 'No title')
+            description = data.get('selftext', '')
+            video_url = None
+            image_url = None
+            media = data.get('secure_media') or data.get('media')
+            if media and 'reddit_video' in media:
+                video_url = media['reddit_video'].get('fallback_url')
+            if not video_url and data.get('preview'):
+                reddit_video_preview = data['preview'].get('reddit_video_preview')
+                if reddit_video_preview:
+                    video_url = reddit_video_preview.get('fallback_url')
+            if not video_url and media and media.get('type', '').startswith('gif'):
+                reddit_video = media.get('reddit_video')
+                if reddit_video:
+                    video_url = reddit_video.get('fallback_url')
+            if not video_url and data.get('thumbnail', '').startswith('http'):
+                image_url = data['thumbnail']
+            if not video_url and not image_url and data.get('preview'):
+                images = data['preview'].get('images')
+                if images and len(images) > 0:
+                    image_url = images[0].get('source', {}).get('url')
+                    if image_url:
+                        image_url = image_url.replace('&amp;', '&')
+            trend = {
+                'title': title,
+                'description': description,
+                'link': reddit_url,
+                'source': 'From Reddit',
+                'source_class': 'RedditTrending',
+                'image': image_url if image_url else '/static/images/default_trendy.svg',
+                'video': video_url,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Reddit: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Reddit trends: {e}", exc_info=True)
         return []
-    results = []
-    json_data = response.json()
-    for item in json_data.get('data', {}).get('children', []):
-        data = item['data']
-        reddit_url = 'https://reddit.com' + data.get('permalink', '')
-        title = data.get('title', 'No title')
-        description = data.get('selftext', '')  # Reddit post body as description
-
-        video_url = None
-        image_url = None
-
-        media = data.get('secure_media') or data.get('media')
-        if media and 'reddit_video' in media:
-            reddit_video = media['reddit_video']
-            video_url = reddit_video.get('fallback_url')
-
-        if not video_url and data.get('preview'):
-            reddit_video_preview = data['preview'].get('reddit_video_preview')
-            if reddit_video_preview:
-                video_url = reddit_video_preview.get('fallback_url')
-
-        if not video_url and media and media.get('type', '').startswith('gif'):
-            reddit_video = media.get('reddit_video')
-            if reddit_video:
-                video_url = reddit_video.get('fallback_url')
-
-        if not video_url and data.get('thumbnail', '').startswith('http'):
-            image_url = data['thumbnail']
-
-        if not video_url and not image_url and data.get('preview'):
-            images = data['preview'].get('images')
-            if images and len(images) > 0:
-                image_url = images[0].get('source', {}).get('url')
-                if image_url:
-                    image_url = image_url.replace('&amp;', '&')
-
-        trend = {
-            'title': title,
-            'description': description,
-            'link': reddit_url,
-            'source': 'From Reddit',
-            'source_class': 'RedditTrending',
-            'image': image_url if image_url else '/static/images/default_trendy.svg',
-            'video': video_url,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
 
 def get_techcrunch():
     url = 'https://techcrunch.com/'
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36'
-    }
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    items = soup.select('a.post-block__title__link')
-    results = []
-
-    for item in items[:5]:
-        title = item.get_text(strip=True)
-        link = item['href']
-        parent = item.find_parent('div', class_='post-block')
-        description_tag = parent.select_one('.post-block__content') if parent else None
-        description = description_tag.get_text(strip=True) if description_tag else ''
-        image_tag = parent.select_one('img') if parent else None
-        image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
-
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From TechCrunch',
-            'source_class': 'TechcrunchTrending',
-            'image': image,
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('a.post-block__title__link')
+        results = []
+        for item in items[:25]:
+            title = item.get_text(strip=True)
+            link = item['href']
+            parent = item.find_parent('div', class_='post-block')
+            description_tag = parent.select_one('.post-block__content') if parent else None
+            description = description_tag.get_text(strip=True) if description_tag else ''
+            image_tag = parent.select_one('img') if parent else None
+            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From TechCrunch',
+                'source_class': 'TechcrunchTrending',
+                'image': image,
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"TechCrunch: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching TechCrunch trends: {e}", exc_info=True)
+        return []
 
 def get_stackoverflow_trending():
     url = 'https://stackoverflow.com/questions?tab=Hot'
-    soup = BeautifulSoup(requests.get(url).text, 'html.parser')
-    items = soup.select('.question-summary')
-    results = []
-    for item in items[:5]:
-        title_tag = item.select_one('.question-hyperlink')
-        if not title_tag:
-            continue
-        title = title_tag.text
-        link = 'https://stackoverflow.com' + title_tag['href']
-
-        # Stack Overflow questions have excerpts
-        excerpt_tag = item.select_one('.excerpt')
-        description = excerpt_tag.text.strip() if excerpt_tag else ''
-
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From Stack Overflow',
-            'source_class': 'StackoverflowTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('.s-post-summary')
+        results = []
+        for item in items[:25]:
+            title_tag = item.select_one('.s-link')
+            if not title_tag:
+                continue
+            title = title_tag.text.strip()
+            link = urljoin('https://stackoverflow.com', title_tag['href'])
+            excerpt_tag = item.select_one('.s-post-summary--content-excerpt')
+            description = excerpt_tag.text.strip() if excerpt_tag else ''
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Stack Overflow',
+                'source_class': 'StackoverflowTrending',
+                'image': '/static/images/default_trendy.svg',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Stack Overflow: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Stack Overflow trends: {e}", exc_info=True)
+        return []
 
 def get_devto_latest():
     url = 'https://dev.to/'
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5"
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
     }
-
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('div.crayons-story')
         results = []
-
-        for item in items[:5]:
+        for item in items[:25]:
             title_tag = item.select_one('h2.crayons-story__title a')
-            description_tag = item.select_one('div.crayons-story__body')
-            if title_tag:
-                title = title_tag.text.strip()
-                link = title_tag['href']
-                if not link.startswith('http'):
-                    link = urljoin(url, link)
-                description = description_tag.text.strip() if description_tag else ''
-
-                trend = {
-                    'id': str(uuid.uuid4()),  # Temporary ID
-                    'title': title,
-                    'description': description,
-                    'link': link,
-                    'source': 'From Dev.to',
-                    'source_class': 'DevtoTrending',
-                    'image': '/static/images/default_trendy.svg',
-                    'video': None,
-                    'timestamp': datetime.utcnow().isoformat()
-                }
-                trend['id'] = generate_stable_id(trend)  # Assign stable ID inside loop
-                results.append(trend)  # Append inside loop
-        return results
-
-    except Exception as e:
-        print(f"Error fetching Dev.to trending: {e}")
-        return []
-    
-def get_medium_technology():
-    url = 'https://medium.com/topic/technology'
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    soup = BeautifulSoup(requests.get(url, headers=headers).text, 'html.parser')
-    items = soup.select('div.postArticle-content')
-    results = []
-    for item in items[:5]:
-        title_tag = item.select_one('h3')
-        subtitle_tag = item.select_one('h4')
-        title = title_tag.text.strip() if title_tag else ''
-        description = subtitle_tag.text.strip() if subtitle_tag else ''
-        # Medium links can be tricky, fallback to main topic page
-        link_tag = item.find_parent('a')
-        link = link_tag['href'] if link_tag and link_tag.has_attr('href') else url
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From Medium Technology',
-            'source_class': 'MediumtechTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
-def get_lobsters():
-    url = 'https://lobste.rs/'
-    soup = BeautifulSoup(requests.get(url).text, 'html.parser')
-    items = soup.select('.story-link')
-    results = []
-    for item in items[:5]:
-        title = item.text.strip()
-        link = item['href']
-        # Lobsters doesn't provide descriptions on homepage
-        description = ''
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From Lobsters',
-            'source_class': 'LobstersTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
-def get_slashdot():
-    url = 'https://slashdot.org/'
-    soup = BeautifulSoup(requests.get(url).text, 'html.parser')
-    items = soup.select('.story')
-    results = []
-    for item in items[:5]:
-        title_tag = item.select_one('.story-title a')
-        desc_tag = item.select_one('.story-summary')
-        if not title_tag:
-            continue
-        title = title_tag.text.strip()
-        link = title_tag['href']
-        description = desc_tag.text.strip() if desc_tag else ''
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From Slashdot',
-            'source_class': 'SlashdotTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
-def get_digg_popular():
-    url = 'https://digg.com/api/news/popular'
-    response = requests.get(url)
-    if response.status_code != 200:
-        return []
-    data = response.json()
-    results = []
-    for item in data.get('data', {}).get('feed', [])[:5]:
-        title = item.get('content', {}).get('title', '')
-        description = item.get('content', {}).get('description', '')
-        link = item.get('content', {}).get('url', '')
-        image = None
-        media = item.get('content', {}).get('media', [])
-        if media:
-            image = media[0].get('original_url')
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From Digg',
-            'source_class': 'DiggTrending',
-            'image': image if image else '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
-def get_bbc_trending():
-    url = 'https://www.bbc.com/news'
-    soup = BeautifulSoup(requests.get(url).text, 'html.parser')
-    items = soup.select('a.gs-c-promo-heading')
-    results = []
-    for item in items[:5]:
-        title = item.text.strip()
-        link = item['href']
-        if not link.startswith('http'):
-            link = urljoin(url, link)
-        # BBC summaries often in sibling div with class promo-summary or similar
-        parent = item.parent
-        description = ''
-        if parent:
-            desc_tag = parent.select_one('.gs-c-promo-summary')
-            if desc_tag:
-                description = desc_tag.text.strip()
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From BBC',
-            'source_class': 'BBCTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
-def get_twitter_trending():
-    # Unofficial and fragile, scrapes recent #technology tweets from Twitter search
-    url = 'https://twitter.com/search?q=%23technology&f=live'
-    headers = {
-        'User-Agent': 'Mozilla/5.0',
-    }
-    soup = BeautifulSoup(requests.get(url, headers=headers).text, 'html.parser')
-    tweets = soup.select('article div[lang]')
-    results = []
-    for tweet in tweets[:5]:
-        text = tweet.text.strip()
-        # Twitter no direct links to tweet in scraping without JS, so just hashtag search link
-        trend = {
-            'title': text[:50] + ('...' if len(text) > 50 else ''),
-            'description': text,
-            'link': 'https://twitter.com/search?q=%23technology',
-            'source': 'From X',
-            'source_class': 'XTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
-def get_youtube_trending(YOUTUBE_API_KEY):
-    url = "https://www.googleapis.com/youtube/v3/videos"
-    params = {
-        "part": "snippet",
-        "chart": "mostPopular",
-        "maxResults": 25,
-        "regionCode": "US",  # Adjust region if you want
-        "key": YOUTUBE_API_KEY
-    }
-    
-    response = requests.get(url, params=params)
-    data = response.json()
-    
-    results = []
-    for item in data.get("items", []):
-        snippet = item["snippet"]
-        video_id = item["id"]
-        title = snippet.get("title", "")
-        description = snippet.get("description", "")
-        link = f"https://www.youtube.com/watch?v={video_id}"
-        image = snippet.get("thumbnails", {}).get("medium", {}).get("url", "/static/images/default_trendy.svg")
-        
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From YouTube',
-            'source_class': 'YouTubeTrending',
-            'image': image,
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
-def get_ars_technica():
-    url = 'https://feeds.arstechnica.com/arstechnica/index'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'xml')
-    items = soup.find_all('item')
-    results = []
-    for item in items[:5]:
-        title = item.title.text.strip()
-        link = item.link.text.strip()
-        description = item.description.text.strip()
-
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From Ars Technica',
-            'source_class': 'ArsTechnicaTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
-def get_wired():
-    url = 'https://www.wired.com/feed/rss'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'xml')
-    items = soup.find_all('item')
-    results = []
-    for item in items[:5]:
-        title = item.title.text.strip()
-        link = item.link.text.strip()
-        description = item.description.text.strip()
-
-        trend = {
-            'title': title,
-            'description': description,
-            'link': link,
-            'source': 'From Wired',
-            'source_class': 'WiredTrending',
-            'image': '/static/images/default_trendy.svg',
-            'video': None,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-    return results
-
-def fetch_goodreads_trending():
-    url = "https://www.goodreads.com/book/popular_by_date/2025"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    results = []
-
-    book_sections = soup.select("div.tableList tr")[:20]  # Top 20 books
-
-    for row in book_sections:
-        link_tag = row.select_one("a.bookTitle")
-        image_tag = row.select_one("img.bookCover")
-
-        if not link_tag or not image_tag:
-            continue
-
-        title = link_tag.text.strip()
-        link = "https://www.goodreads.com" + link_tag['href']
-        image = image_tag['src']
-
-        trend = {
-            "title": title,
-            "description": None,
-            "image": image,
-            "link": link,
-            "source": "Goodreads",
-            "source_class": "GoodreadsTrending"
-        }
-
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-
-    return results
-
-def fetch_steam_charts():
-    url = "https://steamcharts.com/top"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    results = []
-    timestamp = datetime.utcnow().isoformat()
-
-    rows = soup.select("table.common-table tbody tr")[:50]  # Top 20 games
-
-    for row in rows:
-        name_tag = row.select_one("td.game-name > a")
-        if not name_tag:
-            continue
-
-        title = name_tag.text.strip()
-        link = "https://steamcharts.com" + name_tag['href']
-        app_id = name_tag['href'].split('/')[-1]
-        image = f"https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg"
-
-        trend = {
-            "title": title,
-            "description": None,
-            "image": image,
-            "link": link,
-            "source": "From Steam Charts",
-            "source_class": "SteamChartsTrending",
-            "timestamp": timestamp
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-
-    return results
-
-def scrape_spotify_charts():
-    url = 'https://spotifycharts.com/regional/global/daily/latest'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    rows = soup.select('table.chart-table tbody tr')
-
-    results = []
-
-    for row in rows:
-        title = row.select_one('.chart-table-track strong').text.strip()
-        artist = row.select_one('.chart-table-track span').text.strip().replace('by ', '')
-        description = f"{title} by {artist}"
-        link_tag = row.select_one('.chart-table-image a')
-        link = link_tag['href'] if link_tag else url
-        image_style = row.select_one('.chart-table-image')['style']
-        image_url = image_style.split("url('")[1].split("')")[0] if "url('" in image_style else ""
-
-        trend = {
-            'title': title,
-            'image': image_url,
-            'description': description,
-            'link': link,
-            'source': 'Spotify Charts',
-            "source_class": "SpotifyTrending",
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-
-    return results
-
-def get_billboard_trending():
-    url = "https://www.billboard.com/charts/hot-100"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        results = []
-
-        chart_items = soup.select("li.o-chart-results-list__item > h3")
-
-        for i, h3 in enumerate(chart_items[:50]):  # Limit to top 10
-            title = h3.get_text(strip=True)
-            artist_tag = h3.find_next("span")  # usually the artist is nearby
-            artist = artist_tag.get_text(strip=True) if artist_tag else "Unknown Artist"
-
+            if not title_tag:
+                continue
+            title = title_tag.text.strip()
+            link = urljoin(url, title_tag['href'])
+            description_tag = item.select_one('p.crayons-story__snippet')
+            description = description_tag.text.strip() if description_tag else ''
             trend = {
-                'title': f"{title} — {artist}",
-                'description': f"#{i+1} on Billboard Hot 100",
-                'link': url,
-                'source': 'From Billboard',
-                'source_class': 'BillboardTrending',
-                'image': "/static/images/default_trendy.svg",
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Dev.to',
+                'source_class': 'DevtoTrending',
+                'image': '/static/images/default_trendy.svg',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
-        trend['id'] = generate_stable_id(trend)
-
-        results.append(trend)
-
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Dev.to: Fetched {len(results)} trends")
         return results
-
     except Exception as e:
-        print("Error fetching Billboard trending:", e)
+        logger.error(f"Error fetching Dev.to trends: {e}", exc_info=True)
         return []
-    
-def get_imdb_trending():
-    url = "https://www.imdb.com/chart/moviemeter/"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Referer": "https://www.imdb.com/"
-    }
 
+def get_medium_technology():
+    url = 'https://medium.com/tag/technology'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('article')
         results = []
-        # Updated selector based on IMDb's current structure (as of May 2025)
-        rows = soup.select("ul.ipc-metadata-list li.ipc-metadata-list-summary-item")
-        logger.debug(f"IMDb: Found {len(rows)} rows with selector 'ul.ipc-metadata-list li.ipc-metadata-list-summary-item'")
-
-        if not rows:
-            # Log a snippet of the HTML for debugging
-            logger.debug(f"IMDb: HTML snippet: {soup.prettify()[:1000]}")
-
-        for i, row in enumerate(rows[:10]):
-            title_column = row.find("a", class_="ipc-title-link-wrapper")
-            if not title_column:
-                logger.debug(f"IMDb: No title column found in row {i}")
+        for item in items[:25]:
+            title_tag = item.select_one('h2')
+            if not title_tag:
                 continue
-
-            title = title_column.text.strip().split('. ', 1)[-1]  # Remove ranking number prefix
-            link = "https://www.imdb.com" + title_column['href'].split('?')[0]
-
-            year_span = row.find("span", class_="sc-b189961a-8")
-            year = year_span.text.strip() if year_span else ""
-
-            description = f"Rank #{i+1} trending on IMDb Moviemeter {year}"
-
+            title = title_tag.text.strip()
+            link_tag = item.find('a', href=True)
+            link = urljoin('https://medium.com', link_tag['href'].split('?')[0]) if link_tag else url
+            description_tag = item.select_one('div[aria-hidden="true"] p')
+            description = description_tag.text.strip() if description_tag else ''
             trend = {
-                'id': str(uuid.uuid4()),
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Medium Technology',
+                'source_class': 'MediumtechTrending',
+                'image': '/static/images/default_trendy.svg',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Medium: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Medium trends: {e}", exc_info=True)
+        return []
+
+def get_lobsters():
+    url = 'https://lobste.rs/'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('.story .link a')
+        results = []
+        for item in items[:25]:
+            title = item.text.strip()
+            link = item['href']
+            if not link.startswith(('http://', 'https://')):
+                link = urljoin(url, link)
+            description = ''
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Lobsters',
+                'source_class': 'LobstersTrending',
+                'image': '/static/images/default_trendy.svg',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Lobsters: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Lobsters trends: {e}", exc_info=True)
+        return []
+
+def get_slashdot():
+    url = 'https://slashdot.org/'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('.story')
+        results = []
+        for item in items[:25]:
+            title_tag = item.select_one('.story-title a')
+            if not title_tag:
+                continue
+            title = title_tag.text.strip()
+            link = title_tag['href']
+            if not link.startswith(('http://', 'https://')):
+                link = urljoin('https://slashdot.org', link)
+            desc_tag = item.select_one('.p')
+            description = desc_tag.text.strip() if desc_tag else ''
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Slashdot',
+                'source_class': 'SlashdotTrending',
+                'image': '/static/images/default_trendy.svg',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Slashdot: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Slashdot trends: {e}", exc_info=True)
+        return []
+
+def get_digg_popular():
+    url = 'https://digg.com/'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('article.story-item')
+        results = []
+        for item in items[:25]:
+            title_tag = item.select_one('h2')
+            if not title_tag:
+                continue
+            title = title_tag.text.strip()
+            link_tag = item.select_one('a.story-link')
+            link = link_tag['href'] if link_tag else 'https://digg.com'
+            description_tag = item.select_one('.story-content p')
+            description = description_tag.text.strip() if description_tag else ''
+            image_tag = item.select_one('img')
+            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Digg',
+                'source_class': 'DiggTrending',
+                'image': image,
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Digg: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Digg trends: {e}", exc_info=True)
+        return []
+
+def get_bbc_trending():
+    url = 'https://www.bbc.com/news'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('div.gs-c-promo')
+        results = []
+        for item in items[:25]:
+            title_tag = item.select_one('h3')
+            if not title_tag:
+                continue
+            title = title_tag.text.strip()
+            link_tag = item.select_one('a.gs-c-promo-heading')
+            link = urljoin(url, link_tag['href']) if link_tag else url
+            desc_tag = item.select_one('.gs-c-promo-summary')
+            description = desc_tag.text.strip() if desc_tag else ''
+            image_tag = item.select_one('img')
+            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From BBC',
+                'source_class': 'BBCTrending',
+                'image': image,
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"BBC: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching BBC trends: {e}", exc_info=True)
+        return []
+
+def get_youtube_trending(YOUTUBE_API_KEY):
+    if not YOUTUBE_API_KEY:
+        logger.warning("YouTube API key not provided, skipping YouTube trends")
+        return []
+    url = 'https://www.googleapis.com/youtube/v3/videos'
+    params = {
+        'part': 'snippet',
+        'chart': 'mostPopular',
+        'maxResults': 25,
+        'regionCode': 'US',
+        'key': YOUTUBE_API_KEY
+    }
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        results = []
+        for item in data.get('items', [])[:25]:
+            snippet = item['snippet']
+            video_id = item['id']
+            title = snippet.get('title', '')
+            description = snippet.get('description', '')
+            link = f'https://www.youtube.com/watch?v={video_id}'
+            image = snippet.get('thumbnails', {}).get('medium', {}).get('url', '/static/images/default_trendy.svg')
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From YouTube',
+                'source_class': 'YouTubeTrending',
+                'image': image,
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"YouTube: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching YouTube trends: {e}", exc_info=True)
+        return []
+
+def get_ars_technica():
+    url = 'https://arstechnica.com/'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('article.tease')
+        results = []
+        for item in items[:25]:
+            title_tag = item.select_one('h2 a')
+            if not title_tag:
+                continue
+            title = title_tag.text.strip()
+            link = urljoin(url, title_tag['href'])
+            desc_tag = item.select_one('p.excerpt')
+            description = desc_tag.text.strip() if desc_tag else ''
+            image_tag = item.select_one('img')
+            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Ars Technica',
+                'source_class': 'ArsTechnicaTrending',
+                'image': image,
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Ars Technica: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Ars Technica trends: {e}", exc_info=True)
+        return []
+
+def get_wired():
+    url = 'https://www.wired.com/feed/rss'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'xml')
+        items = soup.find_all('item')
+        results = []
+        for item in items[:25]:
+            title = item.title.text.strip()
+            link = item.link.text.strip()
+            description = item.description.text.strip() if item.description else ''
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Wired',
+                'source_class': 'WiredTrending',
+                'image': '/static/images/default_trendy.svg',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Wired: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Wired trends: {e}", exc_info=True)
+        return []
+
+def get_goodreads_trending():
+    url = 'https://www.goodreads.com/book/popular_by_date/2025'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        book_sections = soup.select('div.tableList tr')
+        results = []
+        for row in book_sections[:25]:
+            link_tag = row.select_one('a.bookTitle')
+            image_tag = row.select_one('img.bookCover')
+            if not link_tag or not image_tag:
+                continue
+            title = link_tag.text.strip()
+            link = 'https://www.goodreads.com' + link_tag['href']
+            image = image_tag['src']
+            trend = {
+                'title': title,
+                'description': '',
+                'image': image,
+                'link': link,
+                'source': 'From Goodreads',
+                'source_class': 'GoodreadsTrending',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Goodreads: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Goodreads trends: {e}", exc_info=True)
+        return []
+
+def get_steam_charts():
+    url = 'https://steamcharts.com/top'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        rows = soup.select('table.common-table tbody tr')
+        results = []
+        for row in rows[:25]:
+            name_tag = row.select_one('td.game-name > a')
+            if not name_tag:
+                continue
+            title = name_tag.text.strip()
+            link = 'https://steamcharts.com' + name_tag['href']
+            app_id = name_tag['href'].split('/')[-1]
+            image = f'https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/header.jpg'
+            trend = {
+                'title': title,
+                'description': '',
+                'image': image,
+                'link': link,
+                'source': 'From Steam Charts',
+                'source_class': 'SteamChartsTrending',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Steam Charts: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Steam Charts trends: {e}", exc_info=True)
+        return []
+
+def get_spotify_charts(client_id, client_secret):
+    if not client_id or not client_secret:
+        logger.warning("Spotify Client ID or Client Secret not provided, skipping Spotify trends")
+        return []
+    try:
+        # Authenticate with Spotify API
+        credentials = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
+        sp = spotipy.Spotify(client_credentials_manager=credentials)
+        
+        # Fetch Global Top 50 playlist
+        playlist_id = '37i9dQZEVXbMDoHDwVN2tF'  # Spotify Global Top 50
+        playlist = sp.playlist(playlist_id)
+        results = []
+        
+        for item in playlist['tracks']['items'][:25]:
+            track = item['track']
+            title = track['name']
+            artist = ', '.join(artist['name'] for artist in track['artists'])
+            description = f'{title} by {artist}'
+            link = track['external_urls']['spotify']
+            image = track['album']['images'][0]['url'] if track['album']['images'] else '/static/images/default_trendy.svg'
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Spotify Charts',
+                'source_class': 'SpotifyTrending',
+                'image': image,
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Spotify Charts: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Spotify Charts trends: {e}", exc_info=True)
+        return []
+
+def get_billboard_trending():
+    url = 'https://www.billboard.com/charts/hot-100'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.select('li.o-chart-results-list__item h3')
+        results = []
+        for i, h3 in enumerate(items[:25]):
+            title = h3.get_text(strip=True)
+            artist_tag = h3.find_next('span')
+            artist = artist_tag.get_text(strip=True) if artist_tag else 'Unknown Artist'
+            trend = {
+                'title': f'{title} — {artist}',
+                'description': f'#{i+1} on Billboard Hot 100',
+                'link': url,
+                'source': 'From Billboard',
+                'source_class': 'BillboardTrending',
+                'image': '/static/images/default_trendy.svg',
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Billboard: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Billboard trends: {e}", exc_info=True)
+        return []
+
+def get_imdb_trending():
+    url = 'https://www.imdb.com/chart/moviemeter/'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        rows = soup.select('ul.ipc-metadata-list li.ipc-metadata-list-summary-item')
+        results = []
+        for i, row in enumerate(rows[:25]):
+            title_column = row.select_one('a.ipc-title-link-wrapper')
+            if not title_column:
+                continue
+            title = title_column.text.strip().split('. ', 1)[-1]
+            link = 'https://www.imdb.com' + title_column['href'].split('?')[0]
+            year_span = row.select_one('span.sc-b189961a-8')
+            year = year_span.text.strip() if year_span else ''
+            description = f'Rank #{i+1} trending on IMDb Moviemeter {year}'
+            image_tag = row.select_one('img.ipc-image')
+            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
+            trend = {
                 'title': title,
                 'description': description,
                 'link': link,
                 'source': 'From IMDb',
                 'source_class': 'IMDbTrending',
-                'image': "/static/images/default_trendy.svg",
+                'image': image,
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
-            logger.debug(f"IMDb: Added trend - {title}")
-
-        if not results:
-            logger.warning("IMDb: No trends found, likely due to selector mismatch or JavaScript rendering")
+        logger.debug(f"IMDb: Fetched {len(results)} trends")
         return results
-
     except Exception as e:
-        logger.error(f"Error fetching IMDb trending: {e}", exc_info=True)
+        logger.error(f"Error fetching IMDb trends: {e}", exc_info=True)
         return []
-    
-def get_cnn_trending():
-    url = "https://www.cnn.com/world"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Referer": "https://www.cnn.com/"
-    }
 
+def get_cnn_trending():
+    url = 'https://www.cnn.com/world'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+    }
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-
+        soup = BeautifulSoup(response.text, 'html.parser')
+        articles = soup.select('a.container__link--type-article')
         results = []
-        # Updated selector based on current CNN structure (as of May 2025)
-        articles = soup.select("a.container__link--type-article")
-        logger.debug(f"CNN: Found {len(articles)} articles with selector 'a.container__link--type-article'")
-
-        for i, article in enumerate(articles[:10]):
+        for i, article in enumerate(articles[:25]):
             title = article.get_text(strip=True)
             if not title:
-                logger.debug(f"CNN: No title found for article {i}")
                 continue
-
             link = article['href']
-            if not link.startswith("http"):
-                link = f"https://www.cnn.com{link}"
-
+            if not link.startswith('http'):
+                link = f'https://www.cnn.com{link}'
+            description = f'#{i+1} on CNN World'
+            image_tag = article.find_parent().select_one('img')
+            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
             trend = {
-                "id": str(uuid.uuid4()),
-                "title": title,
-                "description": f"#{i + 1} on CNN World",
-                "link": link,
-                "source": "From CNN",
-                "source_class": "CNNTrending",
-                "image": "/static/images/default_trendy.svg",
-                "video": None,
-                "timestamp": datetime.utcnow().isoformat()
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From CNN',
+                'source_class': 'CNNTrending',
+                'image': image,
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
-            logger.debug(f"CNN: Added trend - {title}")
-
-        if not results:
-            logger.warning("CNN: No trends found, likely due to selector mismatch or empty page")
+        logger.debug(f"CNN: Fetched {len(results)} trends")
         return results
-
     except Exception as e:
-        logger.error(f"Error fetching CNN trending: {e}", exc_info=True)
+        logger.error(f"Error fetching CNN trends: {e}", exc_info=True)
         return []
     
 def fetch_reuters_trending():
@@ -998,7 +1003,28 @@ def vote():
 def fetch_all_trends():
     global trends
     all_trends = []
-    funcs = [get_hacker_news]  # Add other functions as implemented
+    funcs = [
+        get_hacker_news,
+        get_github_trending,
+        get_reddit_top,
+        get_techcrunch,
+        get_stackoverflow_trending,
+        get_devto_latest,
+        get_medium_technology,
+        get_lobsters,
+        get_slashdot,
+        get_digg_popular,
+        get_bbc_trending,
+        lambda: get_youtube_trending(YOUTUBE_API_KEY),
+        get_ars_technica,
+        get_wired,
+        get_goodreads_trending,
+        get_steam_charts,
+        lambda: get_spotify_charts(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET),
+        get_billboard_trending,
+        get_imdb_trending,
+        get_cnn_trending
+    ]
     for func in funcs:
         try:
             logger.debug(f"Fetching trends from {func.__name__}")
@@ -1017,6 +1043,7 @@ def scheduler():
         fetch_all_trends()
         time.sleep(30 * 60)
 
+####PROD####
 if __name__ == '__main__':
     logger.info("Starting application")
     fetch_all_trends()
@@ -1024,3 +1051,11 @@ if __name__ == '__main__':
     thread.start()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+    
+####SAND####
+# if __name__ == '__main__':
+#     logger.info("Starting application in sandbox mode")
+#     fetch_all_trends()
+#     thread = threading.Thread(target=scheduler, daemon=True)
+#     thread.start()
+#     app.run(host='127.0.0.1', port=5000, debug=True)
