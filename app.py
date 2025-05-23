@@ -27,7 +27,7 @@ CORS(app, resources={r"/*": {"origins": ["https://trendiinow.com", "https://www.
 # Database configuration for Render
 db_path = '/opt/render/data/trendy.db' if os.getenv('RENDER') else os.path.join(os.path.abspath(os.path.dirname(__file__)), 'trendy.db')
 if os.getenv('RENDER'):
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)  # Ensure directory exists
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -56,14 +56,75 @@ with app.app_context():
     db.create_all()
     logger.debug(f"Vote table count after initialization: {Vote.query.count()}")
 
-t5_summarizer = pipeline("summarization", model="t5-small")
+# Initialize global trends list
+global_trends = []
 
+# Define STOP_WORDS for generate_summary
 STOP_WORDS = {
-    'with', 'from', 'this', 'that', 'have', 'will', 'more', 'some', 'what', 'when',
-    'where', 'which', 'into', 'over', 'under', 'about', 'there', 'their', 'they',
-    'were', 'been', 'being', 'than', 'then', 'once', 'here', 'after', 'before',
-    'during', 'while', 'because', 'since', 'until', 'again', 'against', 'between'
+    'the', 'and', 'for', 'with', 'from', 'this', 'that', 'are', 'was', 'were', 'has', 'have', 'had',
+    'but', 'not', 'all', 'any', 'some', 'what', 'when', 'where', 'which', 'who', 'why', 'how'
 }
+
+# Initialize pipeline for t5-small
+try:
+    logger.debug("Loading t5-small pipeline")
+    summarizer = pipeline("summarization", model="t5-small", device="cpu")
+    logger.debug("t5-small pipeline loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load t5-small pipeline: {e}", exc_info=True)
+    summarizer = None
+
+# Generate summary function
+def generate_summary(trend):
+    try:
+        title = str(trend.get("title") or "Untitled")
+        description = str(trend.get("description") or "")
+        source = str(trend.get("source") or "an unknown source")
+        text = f"{title}. {description}".strip()
+        text = re.sub(r'#\w+', '', text)
+        text = re.sub(r'\s+', ' ', text).strip(' .|')
+        input_length = len(text.split())
+        max_length = min(100, max(20, input_length * 2))
+        min_length = min(20, max(5, input_length // 2))
+        logger.debug(f"Input text: '{text}', input_length={input_length}, max_length={max_length}, min_length={min_length}")
+        if input_length < 5:
+            logger.debug("Input too short, using custom summary")
+            summary_text = f"'{title}' is trending on {source}."
+        else:
+            result = summarizer(text, max_length=max_length, min_length=min_length, do_sample=False, truncation=True)
+            summary_text = result[0]['summary_text'].strip()
+        logger.debug(f"Summary output: '{summary_text}'")
+        all_text = f"{title} {description} {summary_text}".lower()
+        words = re.findall(r'\w+', all_text)
+        keywords = [word for word in words if len(word) > 3 and word not in STOP_WORDS]
+        keyword_counts = Counter(keywords).most_common(3)
+        selected_keywords = [kw for kw, _ in keyword_counts] or ['trending', source.lower()]
+        hashtags = " ".join(f"#{kw.capitalize()}" for kw in selected_keywords)
+        meta_keywords = ", ".join(selected_keywords)
+        meta_description = f"{summary_text[:160]}{'...' if len(summary_text) > 160 else ''}"
+        return {
+            "text": summary_text,
+            "hashtags": hashtags,
+            "meta_description": meta_description,
+            "meta_keywords": meta_keywords
+        }
+    except Exception as e:
+        logger.error(f"Error generating summary: {e}", exc_info=True)
+        source = str(trend.get("source") or "an unknown source")
+        title = str(trend.get("title") or "Untitled")
+        keywords = [kw for kw in title.lower().split() if len(kw) > 3 and kw not in STOP_WORDS][:3]
+        if not keywords:
+            keywords = ['trending', source.lower()]
+        hashtags = " ".join(f"#{kw.capitalize()}" for kw in keywords)
+        meta_keywords = ", ".join(keywords)
+        fallback_summary = f"'{title}' is trending on {source}."
+        meta_description = f"{fallback_summary[:160]}{'...' if len(fallback_summary) > 160 else ''}"
+        return {
+            "text": fallback_summary,
+            "hashtags": hashtags,
+            "meta_description": meta_description,
+            "meta_keywords": meta_keywords
+        }
 
 def generate_stable_id(trend):
     key = (trend.get("title", "") + trend.get("link", "")).strip()
@@ -874,78 +935,29 @@ def fetch_reuters_trending():
         print(f"Error fetching Reuters trending: {e}")
         return []
 # ---------------------------- AGGREGATE AND CACHE ---------------------------- #
-def generate_summary(trend):
-    try:
-        title = str(trend.get("title") or "Untitled")
-        description = str(trend.get("description") or "")
-        source = str(trend.get("source") or "an unknown source")
-        text = f"{title}. {description}".strip()
-        text = re.sub(r'#\w+', '', text)
-        text = re.sub(r'\s+', ' ', text).strip(' .|')
-        input_length = len(text.split())
-        max_length = min(100, max(20, input_length * 2))
-        min_length = min(20, max(5, input_length // 2))
-        logger.debug(f"Input text: '{text}', input_length={input_length}, max_length={max_length}, min_length={min_length}")
-        if input_length < 5:
-            logger.debug("Input too short, using custom summary")
-            summary_text = f"'{title}' is trending on {source}."
-        else:
-            result = t5_summarizer(text, max_length=max_length, min_length=min_length, do_sample=False, truncation=True)
-            summary_text = result[0]['summary_text'].strip()
-        logger.debug(f"Summary output: '{summary_text}'")
-        all_text = f"{title} {description} {summary_text}".lower()
-        words = re.findall(r'\w+', all_text)
-        keywords = [word for word in words if len(word) > 3 and word not in STOP_WORDS]
-        keyword_counts = Counter(keywords).most_common(3)
-        selected_keywords = [kw for kw, _ in keyword_counts] or ['trending', source.lower()]
-        hashtags = " ".join(f"#{kw.capitalize()}" for kw in selected_keywords)
-        meta_keywords = ", ".join(selected_keywords)
-        meta_description = f"{summary_text[:160]}{'...' if len(summary_text) > 160 else ''}"
-        return {
-            "text": summary_text,
-            "hashtags": hashtags,
-            "meta_description": meta_description,
-            "meta_keywords": meta_keywords
-        }
-    except Exception as e:
-        logger.error(f"Error generating summary: {e}", exc_info=True)
-        source = str(trend.get("source") or "an unknown source")
-        title = str(trend.get("title") or "Untitled")
-        keywords = [kw for kw in title.lower().split() if len(kw) > 3 and kw not in STOP_WORDS][:3]
-        if not keywords:
-            keywords = ['trending', source.lower()]
-        hashtags = " ".join(f"#{kw.capitalize()}" for kw in keywords)
-        meta_keywords = ", ".join(keywords)
-        fallback_summary = f"'{title}' is trending on {source}."
-        meta_description = f"{fallback_summary[:160]}{'...' if len(fallback_summary) > 160 else ''}"
-        return {
-            "text": fallback_summary,
-            "hashtags": hashtags,
-            "meta_description": meta_description,
-            "meta_keywords": meta_keywords
-        }
-
+# Trend fetching
 def fetch_all_trends():
-    global trends
+    global global_trends
+    logger.debug("Starting fetch_all_trends")
     all_trends = []
     funcs = [
         get_hacker_news,
         get_github_trending,
-        get_reddit_top,
-        get_techcrunch,
+        # get_reddit_top,  # Disabled: 403 Blocked error; requires OAuth
+        # get_techcrunch,  # Disabled: Returns 0 trends; check parsing logic
         get_stackoverflow_trending,
         get_devto_latest,
         get_medium_technology,
         get_lobsters,
         get_slashdot,
-        get_digg_popular,
-        get_bbc_trending,
-        lambda: get_youtube_trending(YOUTUBE_API_KEY),
-        get_ars_technica,
-        get_wired,
-        get_goodreads_trending,
+        # get_digg_popular,  # Disabled: Returns 0 trends; check parsing logic
+        # get_bbc_trending,  # Disabled: Returns 0 trends; check parsing logic
+        # lambda: get_youtube_trending(os.getenv('YOUTUBE_API_KEY')),  # Disabled: Missing YOUTUBE_API_KEY
+        # get_ars_technica,  # Disabled: Returns 0 trends; check parsing logic
+        get_wired,  # Fixed: Requires lxml
+        # get_goodreads_trending,  # Disabled: Returns 0 trends; check parsing logic
         get_steam_charts,
-        lambda: get_spotify_charts(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET),
+        # lambda: get_spotify_charts(os.getenv('SPOTIFY_CLIENT_ID'), os.getenv('SPOTIFY_CLIENT_SECRET')),  # Disabled: Excluded per user request
         get_billboard_trending,
         get_imdb_trending,
         get_cnn_trending
@@ -971,10 +983,11 @@ def fetch_all_trends():
             logger.error(f"Error fetching from {func.__name__}: {e}", exc_info=True)
 
     all_trends.sort(key=lambda x: x['timestamp'] if isinstance(x['timestamp'], datetime) else datetime.fromisoformat(x['timestamp']), reverse=True)
-    trends = all_trends
-    logger.debug(f"Total trends fetched: {len(trends)}")
-    return trends
+    global_trends = all_trends[:1000]  # Limit to 1000 trends to reduce memory usage
+    logger.debug(f"Total trends fetched: {len(global_trends)}")
+    return global_trends
 
+# Background fetching for Render
 def background_fetch():
     logger.debug("Background fetch thread started")
     while True:
@@ -995,7 +1008,11 @@ else:
 @app.route('/')
 def home():
     logger.debug("Rendering home page")
-    global trends
+    trends = global_trends  # Use global_trends explicitly
+    if not trends:
+        logger.warning("No trends available for home page")
+        fetch_all_trends()  # Attempt to fetch trends if empty
+        trends = global_trends
     random.shuffle(trends)
     unique_sources = sorted(set(trend['source'] for trend in trends))
     vote_counts = db.session.query(
@@ -1019,12 +1036,12 @@ def home():
 @app.route('/api/trends')
 def api_trends():
     logger.debug("Serving /api/trends")
-    return jsonify(trends[:2000])
+    return jsonify(global_trends[:2000])
 
 @app.route('/trend/<trend_id>')
 def trend_detail(trend_id):
     logger.debug(f"Rendering trend detail for ID: {trend_id}")
-    trend = next((t for t in trends if t['id'] == trend_id), None)
+    trend = next((t for t in global_trends if t['id'] == trend_id), None)
     if not trend:
         logger.warning(f"Trend not found: {trend_id}")
         return render_template('404.html'), 404
@@ -1070,7 +1087,7 @@ def fetch_trends():
     try:
         fetch_all_trends()
         logger.debug("Manual trend fetch completed")
-        return jsonify({"status": "success", "trend_count": len(trends)})
+        return jsonify({"status": "success", "trend_count": len(global_trends)})
     except Exception as e:
         logger.error(f"Manual trend fetch failed: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -1117,16 +1134,8 @@ def test_vote():
 def debug_request():
     logger.debug(f"Request host: {request.host}, URL: {request.url}")
     return jsonify({"host": request.host, "url": request.url})
-         
-####PROD####
+
 if __name__ == '__main__':
-    logger.info("Starting application")
+    logger.info("Starting application in local mode")
     fetch_all_trends()
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-    
-####SAND####
-# if __name__ == '__main__':
-#     logger.info("Starting application in local mode")
-#     fetch_all_trends()
-#     app.run(host='127.0.0.1', port=5000, debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True)
