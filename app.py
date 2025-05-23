@@ -7,7 +7,7 @@ import random
 import threading
 import time
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 import re
 from collections import Counter
 from bs4 import BeautifulSoup
@@ -21,7 +21,6 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(nam
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-# Support Render and custom domain
 CORS(app, resources={r"/*": {"origins": ["https://trendiinow.com", "https://www.trendiinow.com", "https://trendy-wqzi.onrender.com"]}})
 
 # Database configuration for Render
@@ -65,6 +64,16 @@ STOP_WORDS = {
     'but', 'not', 'all', 'any', 'some', 'what', 'when', 'where', 'which', 'who', 'why', 'how'
 }
 
+# Mood tag keyword dictionary
+MOOD_KEYWORDS = {
+    'Controversial': ['controversy', 'debate', 'scandal', 'dispute', 'conflict', 'outrage'],
+    'Wholesome': ['heartwarming', 'kind', 'positive', 'uplifting', 'inspiring', 'charity'],
+    'Breaking': ['breaking', 'urgent', 'alert', 'news', 'emergency', 'update'],
+    'Weird': ['strange', 'odd', 'unusual', 'bizarre', 'weird', 'quirky'],
+    'Funny': ['funny', 'hilarious', 'comedy', 'joke', 'meme', 'lol'],
+    'Exciting': ['thrilling', 'exciting', 'epic', 'amazing', 'breakthrough']
+}
+
 # Initialize pipeline for t5-small
 try:
     logger.debug("Loading t5-small pipeline")
@@ -73,6 +82,21 @@ try:
 except Exception as e:
     logger.error(f"Failed to load t5-small pipeline: {e}", exc_info=True)
     summarizer = None
+
+# Generate mood tags
+def generate_mood_tags(trend):
+    try:
+        title = str(trend.get("title") or "").lower()
+        description = str(trend.get("description") or "").lower()
+        text = f"{title} {description}"
+        tags = []
+        for mood, keywords in MOOD_KEYWORDS.items():
+            if any(keyword in text for keyword in keywords):
+                tags.append(mood)
+        return tags if tags else ['Trending']
+    except Exception as e:
+        logger.error(f"Error generating mood tags: {e}", exc_info=True)
+        return ['Trending']
 
 # Generate summary function
 def generate_summary(trend):
@@ -145,6 +169,14 @@ def time_ago(timestamp_str):
         return f"{int(seconds // 86400)} days ago"
 
 app.jinja_env.globals.update(time_ago=time_ago)
+
+# Select Random Trend of the Day
+def get_trend_of_the_day(trends):
+    if not trends:
+        return None
+    today = date.today().isoformat()
+    random.seed(today)
+    return random.choice(trends)
 
 def get_hacker_news():
     url = 'https://news.ycombinator.com/'
@@ -983,7 +1015,7 @@ def fetch_all_trends():
             logger.error(f"Error fetching from {func.__name__}: {e}", exc_info=True)
 
     all_trends.sort(key=lambda x: x['timestamp'] if isinstance(x['timestamp'], datetime) else datetime.fromisoformat(x['timestamp']), reverse=True)
-    global_trends = all_trends[:1000]  # Limit to 1000 trends to reduce memory usage
+    global_trends = all_trends[:2000]  # Limit to 1000 trends to reduce memory usage
     logger.debug(f"Total trends fetched: {len(global_trends)}")
     return global_trends
 
@@ -1000,7 +1032,7 @@ def background_fetch():
 
 if os.getenv('RENDER'):
     logger.debug("Starting background fetch thread on Render")
-    threading.Thread(target=background_fetch, daemon=True).start()
+    threading.Thread(target=background、手動background_fetch, daemon=True).start()
 else:
     logger.debug("Skipping background thread for local development")
 
@@ -1008,12 +1040,13 @@ else:
 @app.route('/')
 def home():
     logger.debug("Rendering home page")
-    trends = global_trends  # Use global_trends explicitly
+    trends = global_trends
     if not trends:
         logger.warning("No trends available for home page")
-        fetch_all_trends()  # Attempt to fetch trends if empty
+        fetch_all_trends()
         trends = global_trends
     random.shuffle(trends)
+    trend_of_the_day = get_trend_of_the_day(trends)
     unique_sources = sorted(set(trend['source'] for trend in trends))
     vote_counts = db.session.query(
         Vote.trend_id,
@@ -1029,6 +1062,7 @@ def home():
     return render_template(
         'index.html',
         trends=trends,
+        trend_of_the_day=trend_of_the_day,
         unique_sources=unique_sources,
         vote_counts=vote_counts_dict
     )
@@ -1108,7 +1142,6 @@ def test_vote():
             db.session.add(trend)
             db.session.commit()
             logger.debug("Test trend inserted successfully")
-
         test_ip = "127.0.0.1"
         vote = Vote.query.filter_by(trend_id=test_trend_id, ip_address=test_ip).first()
         if not vote:
@@ -1121,7 +1154,6 @@ def test_vote():
             db.session.add(vote)
             db.session.commit()
             logger.debug("Test vote inserted successfully")
-
         vote_count = Vote.query.count()
         logger.debug(f"Total votes in database: {vote_count}")
         return jsonify({"status": "success", "vote_count": vote_count})

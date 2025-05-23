@@ -6,33 +6,32 @@
   <title>Trendii - Trending Across the Web</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-        #source-filters label {
-  display: flex;
-  align-items: center;
-  background-color: #e0f2f1;
-  border-radius: 20px;
-  padding: 0.3rem 0.7rem;
-  font-size: 0.9rem;
-  color: #004d40;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-#source-filters label:hover {
-  background-color: #b2dfdb;
-}
-#source-filters input[type="checkbox"] {
-  margin-right: 6px;
-}
-
+    #source-filters label {
+      display: flex;
+      align-items: center;
+      background-color: #e0f2f1;
+      border-radius: 20px;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.9rem;
+      color: #004d40;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    #source-filters label:hover {
+      background-color: #b2dfdb;
+    }
+    #source-filters input[type="checkbox"] {
+      margin-right: 6px;
+    }
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(to bottom, #e0f7fa, #ffffff);
+      background: var(--bg-color);
       margin: 0; padding: 0;
-      color: #333;
+      color: var(--text-color);
     }
     header {
-      background-color: #00796b;
-      color: white;
+      background: var(--header-bg);
+      color: var(--header-text);
       padding: 1rem;
       font-size: 2rem;
       text-align: center;
@@ -41,16 +40,16 @@
     }
     .container {
       display: grid;
-      grid-template-columns: repeat(auto-fit,minmax(280px,1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 1rem;
       padding: 1rem;
       max-width: 1200px;
       margin: auto;
     }
     .card {
-      background: white;
+      background: var(--card-bg);
       border-radius: 10px;
-      box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       padding: 1rem;
       display: flex;
       flex-direction: column;
@@ -76,7 +75,7 @@
       margin-bottom: 0.7rem;
       flex-grow: 1;
       white-space: pre-wrap;
-      max-height: 15em;         /* limit to about 5 lines */
+      max-height: 15em;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -89,72 +88,28 @@
       display: inline-block;
       color: white;
     }
-    .source.ReutersTrending {
-      background-color: #2f3e46;
-    }
-    .source.CNNTrending {
-      background-color: #CC0000;
-    }
-    .source.IMDbTrending {
-      background-color: #F5DE50;
-    }
-    .source.BillboardTrending {
-      background-color: #f76060;
-    }
-    .source.SpotifyTrending {
-      background-color: #1DB954;
-    }
-    .source.SteamChartsTrending {
-      background-color: #171A21;
-    }
-    .source.GoodreadsTrending {
-      background-color: #372213;
-    }
-    .source.WiredTrending {
-      background-color: #FF0000;
-    }
-    .source.ArsTechnicaTrending {
-      background-color: #FF4E00;
-    }
-    .source.LobstersTrending {
-      background-color: #a52a2a;
-    }
-    .source.MediumtechTrending {
-      background-color: #00ab6c;
-    }
-    .source.DevtoTrending {
-      background-color: #0a0a0a;
-    }
-    .source.StackoverflowTrending {
-      background-color: #f48024;
-    }
-    .source.TechcrunchTrending {
-      background-color: #0f9d58;
-    }
-    .source.HackerTrending {
-      background-color: #ff6600;
-    }
-    .source.GithubTrending {
-      background-color: #24292e;
-    }
-    .source.SlashdotTrending {
-      background-color: #026664;
-    }
-    .source.RedditTrending {
-      background-color: #ff4500;
-    }
-    .source.DiggTrending {
-      background-color: #000000;
-    }
-    .source.BBCTrending {
-      background-color: #bb1919;
-    }
-    .source.XTrending {
-      background-color: #1da1f2;
-    }
-    .source.YouTubeTrending {
-      background-color: 	#cc0000;
-    }
+    .source.ReutersTrending { background-color: #2f3e46; }
+    .source.CNNTrending { background-color: #CC0000; }
+    .source.IMDbTrending { background-color: #F5DE50; }
+    .source.BillboardTrending { background-color: #f76060; }
+    .source.SpotifyTrending { background-color: #1DB954; }
+    .source.SteamChartsTrending { background-color: #171A21; }
+    .source.GoodreadsTrending { background-color: #372213; }
+    .source.WiredTrending { background-color: #FF0000; }
+    .source.ArsTechnicaTrending { background-color: #FF4E00; }
+    .source.LobstersTrending { background-color: #a52a2a; }
+    .source.MediumtechTrending { background-color: #00ab6c; }
+    .source.DevtoTrending { background-color: #0a0a0a; }
+    .source.StackoverflowTrending { background-color: #f48024; }
+    .source.TechcrunchTrending { background-color: #0f9d58; }
+    .source.HackerTrending { background-color: #ff6600; }
+    .source.GithubTrending { background-color: #24292e; }
+    .source.SlashdotTrending { background-color: #026664; }
+    .source.RedditTrending { background-color: #ff4500; }
+    .source.DiggTrending { background-color: #000000; }
+    .source.BBCTrending { background-color: #bb1919; }
+    .source.XTrending { background-color: #1da1f2; }
+    .source.YouTubeTrending { background-color: #cc0000; }
     img, video {
       width: 100%;
       border-radius: 8px;
@@ -162,267 +117,295 @@
       max-height: 200px;
       object-fit: cover;
     }
-    video {
-      outline: none;
+    video { outline: none; }
+    /* Trend of the Day Styling */
+    .trend-of-the-day {
+      background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+      border: 2px solid #ffd700;
+      border-radius: 10px;
+      padding: 1rem;
+      margin: 1rem auto;
+      max-width: 600px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .trend-of-the-day h2 {
+      font-size: 1.5rem;
+      color: white;
+    }
+    .trend-of-the-day .source {
+      background-color: rgba(0, 0, 0, 0.7);
+    }
+    /* Mood Tags Styling */
+    .mood-tags {
+      margin-top: 0.5rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .mood-tags .badge {
+      font-size: 0.8rem;
     }
     @media (max-width: 768px) {
-  header {
-    font-size: 1.5rem;
-    padding: 0.7rem;
-  }
-
-  #filter-bar {
-    padding: 1rem 0.5rem;
-  }
-
-  #source-filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  #source-filters label {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .card {
-    padding: 0.8rem;
-  }
-
-  .card h2 {
-    font-size: 1rem;
-  }
-
-  .description {
-    font-size: 0.9rem;
-  }
-
-  .source {
-    font-size: 0.75rem;
-  }
-
-  .votes button {
-    font-size: 0.85rem;
-    padding: 0.25rem 0.5rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .card h2 {
-    font-size: 0.95rem;
-  }
-
-  .description {
-    font-size: 0.85rem;
-  }
-
-  header {
-    font-size: 1.3rem;
-  }
-
-  .btn {
-    font-size: 0.8rem;
-    padding: 0.3rem 0.6rem;
-  }
-}
-.card.HackerTrending { border-left: 4px solid #ff6600; background: #fff6f0; }
-.card.GithubTrending { border-left: 4px solid #24292e; background: #f8f9fa; }
-.card.RedditTrending { border-left: 4px solid #ff4500; background: #fff0f0; }
-.card.YouTubeTrending { border-left: 4px solid #cc0000; background: #ffe6e6; }
-.card.XTrending { border-left: 4px solid #1da1f2; background: #e6f3ff; }
-.card.BBCTrending { border-left: 4px solid #bb1919; background: #ffe6e6; }
-.card.DiggTrending { border-left: 4px solid #000000; background: #f8f9fa; }
-.card.SlashdotTrending { border-left: 4px solid #026664; background: #e6fafa; }
-.card.TechcrunchTrending { border-left: 4px solid #0f9d58; background: #e6f7ec; }
-.card.StackoverflowTrending { border-left: 4px solid #f48024; background: #fff5e6; }
-.card.DevtoTrending { border-left: 4px solid #0a0a0a; background: #f8f9fa; }
-.card.MediumtechTrending { border-left: 4px solid #00ab6c; background: #e6f7ec; }
-.card.LobstersTrending { border-left: 4px solid #a52a2a; background: #ffe6e6; }
-.card.WiredTrending { border-left: 4px solid #ff0000; background: #ffe6e6; }
-.card.ArsTechnicaTrending { border-left: 4px solid #ff4e00; background: #fff5e6; }
-.card.GoodreadsTrending { border-left: 4px solid #372213; background: #f8f9fa; }
-.card.SteamChartsTrending { border-left: 4px solid #171a21; background: #e6e9f0; }
-.card.SpotifyTrending { border-left: 4px solid #1db954; background: #e6f7ec; }
-.card.BillboardTrending { border-left: 4px solid #f76060; background: #fff0f0; }
-.card.IMDbTrending { border-left: 4px solid #f5de50; background: #fffbe6; }
-.card.CNNTrending { border-left: 4px solid #cc0000; background: #ffe6e6; }
-.card.ReutersTrending { border-left: 4px solid #2f3e46; background: #e6e9f0; }
-:root {
-  --bg-color: linear-gradient(to bottom, #e0f7fa, #ffffff);
-  --card-bg: #ffffff;
-  --text-color: #333;
-  --header-bg: #00796b;
-  --header-text: #ffffff;
-  --filter-bg: #00796b;
-  --filter-text: #ffffff;
-  --filter-label-bg: #e0f2f1;
-  --filter-label-text: #004d40;
-}
-[data-theme="dark"] {
-  --bg-color: linear-gradient(to bottom, #1a1a1a, #2c2c2c);
-  --card-bg: #2c2c2c;
-  --text-color: #e0e0e0;
-  --header-bg: #004d40;
-  --header-text: #e0e0e0;
-  --filter-bg: #004d40;
-  --filter-text: #e0e0e0;
-  --filter-label-bg: #455a64;
-  --filter-label-text: #e0e0e0;
-}
-[data-theme="fun"] {
-  --bg-color: linear-gradient(to bottom, #ffeb3b, #ffca28);
-  --card-bg: #fff9c4;
-  --text-color: #d81b60;
-  --header-bg: #f06292;
-  --header-text: #ffffff;
-  --filter-bg: #f06292;
-  --filter-text: #ffffff;
-  --filter-label-bg: #fce4ec;
-  --filter-label-text: #d81b60;
-}
-body {
-  background: var(--bg-color);
-  color: var(--text-color);
-}
-header {
-  background: var(--header-bg);
-  color: var(--header-text);
-}
-#filter-bar {
-  background: var(--filter-bg);
-  color: var(--filter-text);
-}
-#source-filters label {
-  background: var(--filter-label-bg);
-  color: var(--filter-label-text);
-}
-#source-filters label:hover {
-  background: var(--filter-label-bg);
-  filter: brightness(1.2);
-}
-.card {
-  background: var(--card-bg);
-}
+      header {
+        font-size: 1.5rem;
+        padding: 0.7rem;
+      }
+      #filter-bar {
+        padding: 1rem 0.5rem;
+      }
+      #source-filters {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      #source-filters label {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .card {
+        padding: 0.8rem;
+      }
+      .card h2 {
+        font-size: 1rem;
+      }
+      .description {
+        font-size: 0.9rem;
+      }
+      .source {
+        font-size: 0.75rem;
+      }
+      .votes button {
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+      }
+      .trend-of-the-day h2 {
+        font-size: 1.2rem;
+      }
+    }
+    @media (max-width: 480px) {
+      .card h2 {
+        font-size: 0.95rem;
+      }
+      .description {
+        font-size: 0.85rem;
+      }
+      header {
+        font-size: 1.3rem;
+      }
+      .btn {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.6rem;
+      }
+    }
+    /* Existing source-specific card styles */
+    .card.HackerTrending { border-left: 4px solid #ff6600; background: #fff6f0; }
+    .card.GithubTrending { border-left: 4px solid #24292e; background: #f8f9fa; }
+    .card.RedditTrending { border-left: 4px solid #ff4500; background: #fff0f0; }
+    .card.YouTubeTrending { border-left: 4px solid #cc0000; background: #ffe6e6; }
+    .card.XTrending { border-left: 4px solid #1da1f2; background: #e6f3ff; }
+    .card.BBCTrending { border-left: 4px solid #bb1919; background: #ffe6e6; }
+    .card.DiggTrending { border-left: 4px solid #000000; background: #f8f9fa; }
+    .card.SlashdotTrending { border-left: 4px solid #026664; background: #e6fafa; }
+    .card.TechcrunchTrending { border-left: 4px solid #0f9d58; background: #e6f7ec; }
+    .card.StackoverflowTrending { border-left: 4px solid #f48024; background: #fff5e6; }
+    .card.DevtoTrending { border-left: 4px solid #0a0a0a; background: #f8f9fa; }
+    .card.MediumtechTrending { border-left: 4px solid #00ab6c; background: #e6f7ec; }
+    .card.LobstersTrending { border-left: 4px solid #a52a2a; background: #ffe6e6; }
+    .card.WiredTrending { border-left: 4px solid #ff0000; background: #ffe6e6; }
+    .card.ArsTechnicaTrending { border-left: 4px solid #ff4e00; background: #fff5e6; }
+    .card.GoodreadsTrending { border-left: 4px solid #372213; background: #f8f9fa; }
+    .card.SteamChartsTrending { border-left: 4px solid #171a21; background: #e6e9f0; }
+    .card.SpotifyTrending { border-left: 4px solid #1db954; background: #e6f7ec; }
+    .card.BillboardTrending { border-left: 4px solid #f76060; background: #fff0f0; }
+    .card.IMDbTrending { border-left: 4px solid #f5de50; background: #fffbe6; }
+    .card.CNNTrending { border-left: 4px solid #cc0000; background: #ffe6e6; }
+    .card.ReutersTrending { border-left: 4px solid #2f3e46; background: #e6e9f0; }
+    /* Theme variables */
+    :root {
+      --bg-color: linear-gradient(to bottom, #e0f7fa, #ffffff);
+      --card-bg: #ffffff;
+      --text-color: #333;
+      --header-bg: #00796b;
+      --header-text: #ffffff;
+      --filter-bg: #00796b;
+      --filter-text: #ffffff;
+      --filter-label-bg: #e0f2f1;
+      --filter-label-text: #004d40;
+    }
+    [data-theme="dark"] {
+      --bg-color: linear-gradient(to bottom, #1a1a1a, #2c2c2c);
+      --card-bg: #2c2c2c;
+      --text-color: #e0e0e0;
+      --header-bg: #004d40;
+      --header-text: #e0e0e0;
+      --filter-bg: #004d40;
+      --filter-text: #e0e0e0;
+      --filter-label-bg: #455a64;
+      --filter-label-text: #e0e0e0;
+    }
+    [data-theme="fun"] {
+      --bg-color: linear-gradient(to bottom, #ffeb3b, #ffca28);
+      --card-bg: #fff9c4;
+      --text-color: #d81b60;
+      --header-bg: #f06292;
+      --header-text: #ffffff;
+      --filter-bg: #f06292;
+      --filter-text: #ffffff;
+      --filter-label-bg: #fce4ec;
+      --filter-label-text: #d81b60;
+    }
   </style>
 </head>
 <body>
   <header>
-  🔥 Trendii Now - Trending Across the Web
-  <button id="theme-toggle" class="btn btn-sm btn-outline-light ms-3">Toggle Theme</button>
-</header>
-  <div id="filter-bar" style="background:#00796b; padding: 0.5rem; text-align:center;">
-  <section style="padding: 1rem; max-width: 1200px; margin: auto;">
-  <strong>Filter by Source:</strong>
-  <div id="source-filters" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
-    <label style="font-weight: 500;">
-      <input type="checkbox" id="all-sources" checked>
-      All Sources
-    </label>
-    {% for source in unique_sources %}
-      <label style="font-weight: 500;">
-        <input type="checkbox" value="{{ source }}" class="source-checkbox" checked>
-        {{ source }}
-      </label>
-    {% endfor %}
-  </div>
+    🔥 Trendii Now - Trending Across the Web
+    <button id="theme-toggle" class="btn btn-sm btn-outline-light ms-3">Toggle Theme</button>
+  </header>
+  <!-- Trend of the Day -->
+  {% if trend_of_the_day %}
+  <section class="trend-of-the-day">
+    <h2>🌟 Trend of the Day</h2>
+    <article class="card {{ trend_of_the_day.source_class }}" data-id="{{ trend_of_the_day.id }}">
+      <h2><a href="/trend/{{ trend_of_the_day.id }}">{{ trend_of_the_day.title }}</a></h2>
+      {% if trend_of_the_day.image %}
+        <img src="{{ trend_of_the_day.image }}" alt="Image for {{ trend_of_the_day.title }}" />
+      {% endif %}
+      {% if trend_of_the_day.description %}
+        <p class="description">{{ trend_of_the_day.description }}</p>
+      {% endif %}
+      {% if trend_of_the_day.mood_tags %}
+        <div class="mood-tags">
+          {% for tag in trend_of_the_day.mood_tags %}
+            <span class="badge bg-primary">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <span class="source {{ trend_of_the_day.source_class }}">{{ trend_of_the_day.source }}</span>
+      <p>Trending: {{ time_ago(trend_of_the_day.timestamp) }}</p>
+      <div class="votes d-flex gap-2">
+        <button class="vote-btn btn btn-outline-primary btn-sm" data-type="thumbs_up">👍 <span class="vote-count" data-type="thumbs_up">{{ vote_counts.get(trend_of_the_day.id, {}).get('thumbs_up', 0) }}</span></button>
+        <button class="vote-btn btn btn-outline-danger btn-sm" data-type="fire">🔥 <span class="vote-count" data-type="fire">{{ vote_counts.get(trend_of_the_day.id, {}).get('fire', 0) }}</span></button>
+        <button class="vote-btn btn btn-outline-info btn-sm" data-type="mind_blown">😲 <span class="vote-count" data-type="mind_blown">{{ vote_counts.get(trend_of_the_day.id, {}).get('mind_blown', 0) }}</span></button>
+      </div>
+      <a href="{{ trend_of_the_day.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-3 align-self-start">See More</a>
+    </article>
   </section>
+  {% endif %}
+  <div id="filter-bar" style="background: var(--filter-bg); padding: 0.5rem; text-align: center;">
+    <section style="padding: 1rem; max-width: 1200px; margin: auto;">
+      <strong style="color: var(--filter-text);">Filter by Source:</strong>
+      <div id="source-filters" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+        <label style="font-weight: 500;">
+          <input type="checkbox" id="all-sources" checked>
+          All Sources
+        </label>
+        {% for source in unique_sources %}
+          <label style="font-weight: 500;">
+            <input type="checkbox" value="{{ source }}" class="source-checkbox" checked>
+            {{ source }}
+          </label>
+        {% endfor %}
+      </div>
+    </section>
   </div>
-
   <main class="container">
     {% for trend in trends %}
-<article class="card {{ trend.source_class }}" data-id="{{ trend.id }}">
-  <h2><a href="/trend/{{ trend.id }}">{{ trend.title }}</a></h2>
-  {% if trend.image %}
-    <img src="{{ trend.image }}" alt="Image for {{ trend.title }}" />
-  {% endif %}
-  {% if trend.description %}
-    <p class="description">{{ trend.description }}</p>
-  {% endif %}
-  <span class="source {{ trend.source_class }}">{{ trend.source }}</span>
-  <p>Trending: {{ time_ago(trend.timestamp) }}</p>
-  <div class="votes d-flex gap-2">
-    <button class="vote-btn btn btn-outline-primary btn-sm" data-type="thumbs_up">👍 <span class="vote-count" data-type="thumbs_up">{{ vote_counts.get(trend.id, {}).get('thumbs_up', 0) }}</span></button>
-    <button class="vote-btn btn btn-outline-danger btn-sm" data-type="fire">🔥 <span class="vote-count" data-type="fire">{{ vote_counts.get(trend.id, {}).get('fire', 0) }}</span></button>
-    <button class="vote-btn btn btn-outline-info btn-sm" data-type="mind_blown">😲 <span class="vote-count" data-type="mind_blown">{{ vote_counts.get(trend.id, {}).get('mind_blown', 0) }}</span></button>
-  </div>
-  <a href="{{ trend.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-3 align-self-start">See More</a>
-</article>
-{% endfor %}
-
+    <article class="card {{ trend.source_class }}" data-id="{{ trend.id }}">
+      <h2><a href="/trend/{{ trend.id }}">{{ trend.title }}</a></h2>
+      {% if trend.image %}
+        <img src="{{ trend.image }}" alt="Image for {{ trend.title }}" />
+      {% endif %}
+      {% if trend.description %}
+        <p class="description">{{ trend.description }}</p>
+      {% endif %}
+      {% if trend.mood_tags %}
+        <div class="mood-tags">
+          {% for tag in trend.mood_tags %}
+            <span class="badge bg-primary">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <span class="source {{ trend.source_class }}">{{ trend.source }}</span>
+      <p>Trending: {{ time_ago(trend.timestamp) }}</p>
+      <div class="votes d-flex gap-2">
+        <button class="vote-btn btn btn-outline-primary btn-sm" data-type="thumbs_up">👍 <span class="vote-count" data-type="thumbs_up">{{ vote_counts.get(trend.id, {}).get('thumbs_up', 0) }}</span></button>
+        <button class="vote-btn btn btn-outline-danger btn-sm" data-type="fire">🔥 <span class="vote-count" data-type="fire">{{ vote_counts.get(trend.id, {}).get('fire', 0) }}</span></button>
+        <button class="vote-btn btn btn-outline-info btn-sm" data-type="mind_blown">😲 <span class="vote-count" data-type="mind_blown">{{ vote_counts.get(trend.id, {}).get('mind_blown', 0) }}</span></button>
+      </div>
+      <a href="{{ trend.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-3 align-self-start">See More</a>
+    </article>
+    {% endfor %}
   </main>
   <script>
-  const allSourcesCheckbox = document.getElementById('all-sources');
-  const checkboxes = document.querySelectorAll('.source-checkbox');
-  const articles = document.querySelectorAll('.card');
+    const allSourcesCheckbox = document.getElementById('all-sources');
+    const checkboxes = document.querySelectorAll('.source-checkbox');
+    const articles = document.querySelectorAll('.card');
 
-  function filterArticles() {
-    const activeSources = Array.from(checkboxes)
-      .filter(c => c.checked)
-      .map(c => c.value);
+    function filterArticles() {
+      const activeSources = Array.from(checkboxes)
+        .filter(c => c.checked)
+        .map(c => c.value);
+      articles.forEach(card => {
+        const sourceText = card.querySelector('.source')?.textContent.trim();
+        card.style.display = activeSources.includes(sourceText) ? '' : 'none';
+      });
+    }
 
-    articles.forEach(card => {
-      const sourceText = card.querySelector('.source')?.textContent.trim();
-      card.style.display = activeSources.includes(sourceText) ? '' : 'none';
-    });
-  }
-
-  allSourcesCheckbox.addEventListener('change', () => {
-    const isChecked = allSourcesCheckbox.checked;
-    checkboxes.forEach(cb => cb.checked = isChecked);
-    filterArticles();
-  });
-
-  checkboxes.forEach(cb => {
-    cb.addEventListener('change', () => {
-      const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-      allSourcesCheckbox.checked = allChecked;
+    allSourcesCheckbox.addEventListener('change', () => {
+      const isChecked = allSourcesCheckbox.checked;
+      checkboxes.forEach(cb => cb.checked = isChecked);
       filterArticles();
     });
-  });
 
-  // Initial filtering in case something renders late
-  window.addEventListener('DOMContentLoaded', filterArticles);
-
- document.querySelectorAll('.vote-btn').forEach(button => {
-    button.addEventListener('click', () => {
-      const trendDiv = button.closest('.card');
-      const trendId = trendDiv.getAttribute('data-id');
-      const voteType = button.getAttribute('data-type');
-
-      fetch('/api/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trend_id: trendId, vote_type: voteType })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (!data.error) {
-          // Update all vote counts for this trend
-          trendDiv.querySelectorAll('.vote-count').forEach(span => {
-            const type = span.getAttribute('data-type');
-            span.textContent = data[type] || 0;
-          });
-        } else {
-          alert('Error: ' + data.error);
-        }
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', () => {
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        allSourcesCheckbox.checked = allChecked;
+        filterArticles();
       });
     });
-  });
-</script>
-<script>
-  // ... (keep existing filter and vote code) ...
 
-  function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }
-  document.getElementById('theme-toggle').addEventListener('click', () => {
-    const current = localStorage.getItem('theme') || 'light';
-    const next = current === 'light' ? 'dark' : current === 'dark' ? 'fun' : 'light';
-    setTheme(next);
-  });
-  // Apply saved theme on load
-  setTheme(localStorage.getItem('theme') || 'light');
-</script>
+    window.addEventListener('DOMContentLoaded', filterArticles);
+
+    document.querySelectorAll('.vote-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const trendDiv = button.closest('.card');
+        const trendId = trendDiv.getAttribute('data-id');
+        const voteType = button.getAttribute('data-type');
+        fetch('/api/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trend_id: trendId, vote_type: voteType })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) {
+            trendDiv.querySelectorAll('.vote-count').forEach(span => {
+              const type = span.getAttribute('data-type');
+              span.textContent = data[type] || 0;
+            });
+          } else {
+            alert('Error: ' + data.error);
+          }
+        });
+      });
+    });
+
+    function setTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+    }
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      const current = localStorage.getItem('theme') || 'light';
+      const next = current === 'light' ? 'dark' : current === 'dark' ? 'fun' : 'light';
+      setTheme(next);
+    });
+    setTheme(localStorage.getItem('theme') || 'light');
+  </script>
 </body>
 </html>
