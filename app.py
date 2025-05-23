@@ -1119,7 +1119,7 @@ def debug_request():
     return jsonify({"host": request.host, "url": request.url})
          
 ####PROD####
-# if __name__ == '__main__':
+if __name__ == '__main__':
     logger.info("Starting application")
     fetch_all_trends()
     port = int(os.environ.get('PORT', 5000))
