@@ -388,27 +388,33 @@
     </div>
     <div class="accordion" id="sourceAccordionDesktop">
       {% for category, sources in source_groups.items() %}
-        {% if sources|select('in', unique_sources)|list %}
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="headingDesktop{{ category|replace(' ', '') }}">
-              <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDesktop{{ category|replace(' ', '') }}" aria-expanded="true" aria-controls="collapseDesktop{{ category|replace(' ', '') }}">
-                {{ category }}
-              </button>
-            </h2>
-            <div id="collapseDesktop{{ category|replace(' ', '') }}" class="accordion-collapse collapse show" aria-labelledby="headingDesktop{{ category|replace(' ', '') }}" data-bs-parent="#sourceAccordionDesktop">
-              <div class="accordion-body">
-                {% for source in sources %}
-                  {% if source in unique_sources %}
-                    <div class="form-check">
-                      <input class="form-check-input source-checkbox" type="checkbox" value="{{ source }}" id="sourceDesktop{{ source|replace(' ', '') }}" checked>
-                      <label class="form-check-label" for="sourceDesktop{{ source|replace(' ', '') }}">{{ source }}</label>
-                    </div>
-                  {% endfor %}
-                </div>
-              </div>
+  {% set matching_sources = [] %}
+  {% for source in sources %}
+    {% if source in unique_sources %}
+      {% do matching_sources.append(source) %}
+    {% endif %}
+  {% endfor %}
+  {% if matching_sources %}
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading{{ category|replace(' ', '') }}">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ category|replace(' ', '') }}" aria-expanded="false" aria-controls="collapse{{ category|replace(' ', '') }}">
+          {{ category }}
+        </button>
+      </h2>
+      <div id="collapse{{ category|replace(' ', '') }}" class="accordion-collapse collapse" aria-labelledby="heading{{ category|replace(' ', '') }}" data-bs-parent="#sourceAccordion">
+        <div class="accordion-body">
+          {% for source in matching_sources %}
+            <div class="form-check">
+              <input class="form-check-input source-checkbox" type="checkbox" value="{{ source }}" id="source{{ source|replace(' ', '') }}" checked>
+              <label class="form-check-label" for="source{{ source|replace(' ', '') }}">{{ source }}</label>
             </div>
-          {% endif %}
-        {% endfor %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endfor %}
+
       </div>
     </div>
     <main class="container">
