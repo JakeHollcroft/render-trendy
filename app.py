@@ -16,6 +16,8 @@ import uuid
 from urllib.parse import urljoin
 from flask_cors import CORS
 
+
+
 # Configure logging for Render
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(name)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -769,6 +771,43 @@ def get_steam_charts():
         return results
     except Exception as e:
         logger.error(f"Error fetching Steam Charts trends: {e}", exc_info=True)
+        return []
+
+def get_spotify_charts(client_id, client_secret):
+    if not client_id or not client_secret:
+        logger.warning("Spotify Client ID or Client Secret not provided, skipping Spotify trends")
+        return []
+    try:
+        # Authenticate with Spotify APIs
+        
+        # Fetch Global Top 50 playlist
+        playlist_id = '37i9dQZEVXbMDoHDwVN2tF'  # Spotify Global Top 50
+        playlist = sp.playlist(playlist_id)
+        results = []
+        
+        for item in playlist['tracks']['items'][:25]:
+            track = item['track']
+            title = track['name']
+            artist = ', '.join(artist['name'] for artist in track['artists'])
+            description = f'{title} by {artist}'
+            link = track['external_urls']['spotify']
+            image = track['album']['images'][0]['url'] if track['album']['images'] else '/static/images/default_trendy.svg'
+            trend = {
+                'title': title,
+                'description': description,
+                'link': link,
+                'source': 'From Spotify Charts',
+                'source_class': 'SpotifyTrending',
+                'image': image,
+                'video': None,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            trend['id'] = generate_stable_id(trend)
+            results.append(trend)
+        logger.debug(f"Spotify Charts: Fetched {len(results)} trends")
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching Spotify Charts trends: {e}", exc_info=True)
         return []
 
 def get_billboard_trending():
