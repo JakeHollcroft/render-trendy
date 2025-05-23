@@ -140,7 +140,6 @@
     }
     .trend-of-the-day .source {
       background-color: rgba(0, 0, 0, 0.7);
-
     }
     /* Mood Tags Styling */
     .mood-tags {
@@ -151,29 +150,6 @@
     }
     .mood-tags .badge {
       font-size: 0.8rem;
-    }
-    /* Carousel Styling */
-    .trend-carousel {
-      margin: 1rem auto;
-      max-width: 800px;
-      background: linear-gradient(to bottom, #e0f7fa, #ffffff);
-      border-radius: 10px;
-      padding: 1rem;
-    }
-    .carousel-item {
-      transition: opacity 0.5s ease-in-out;
-    }
-    .carousel-item img {
-      max-height: 300px;
-      object-fit: cover;
-    }
-    .carousel-caption {
-      background: rgba(0, 0, 0, 0.7);
-      border-radius: 8px;
-      padding: 0.5rem;
-    }
-    .carousel-caption h5, .carousel-caption p {
-      color: white;
     }
     @media (max-width: 768px) {
       header {
@@ -209,12 +185,6 @@
       }
       .trend-of-the-day h2 {
         font-size: 1.2rem;
-      }
-      .trend-carousel {
-        margin: 0.5rem auto;
-      }
-      .carousel-item img {
-        max-height: 200px;
       }
     }
     @media (max-width: 480px) {
@@ -296,39 +266,6 @@
     🔥 Trendii Now - Trending Across the Web
     <button id="theme-toggle" class="btn btn-sm btn-outline-light ms-3">Toggle Theme</button>
   </header>
-  <!-- Trend Spotlight Carousel -->
-  {% if top_trends %}
-  <section class="trend-carousel">
-    <div id="trendCarousel" class="carousel slide" data-bs-ride="carousel">
-      <div class="carousel-inner">
-        {% for trend in top_trends %}
-        <div class="carousel-item {{ 'active' if loop.first else '' }}">
-          <a href="/trend/{{ trend.id }}">
-            {% if trend.image %}
-              <img src="{{ trend.image }}" class="d-block w-100" alt="Image for {{ trend.title }}">
-            {% else %}
-              <img src="/static/images/default_trendy.svg" class="d-block w-100" alt="Default trend image">
-            {% endif %}
-            <div class="carousel-caption d-none d-md-block">
-              <h5>{{ trend.title }}</h5>
-              <p>{{ trend.description | truncate(100) }}</p>
-              <span class="source {{ trend.source_class }}">{{ trend.source }}</span>
-            </div>
-          </a>
-        </div>
-        {% endfor %}
-      </div>
-      <button class="carousel-control-prev" type="button" data-bs-target="#trendCarousel" data-bs-slide="prev">
-        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Previous</span>
-      </button>
-      <button class="carousel-control-next" type="button" data-bs-target="#trendCarousel" data-bs-slide="next">
-        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Next</span>
-      </button>
-    </div>
-  </section>
-  {% endif %}
   <!-- Trend of the Day -->
   {% if trend_of_the_day %}
   <section class="trend-of-the-day">
@@ -470,6 +407,5 @@
     });
     setTheme(localStorage.getItem('theme') || 'light');
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

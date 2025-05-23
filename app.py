@@ -178,30 +178,6 @@ def get_trend_of_the_day(trends):
     random.seed(today)
     return random.choice(trends)
 
-# Select Top Trends for Carousel
-def get_top_trends(trends, limit=5):
-    if not trends:
-        return []
-    vote_counts = db.session.query(
-        Vote.trend_id,
-        db.func.count().label('total_votes')
-    ).group_by(Vote.trend_id).all()
-    vote_counts_dict = {v.trend_id: v.total_votes for v in vote_counts}
-    sorted_trends = sorted(
-        trends,
-        key=lambda t: vote_counts_dict.get(t['id'], 0),
-        reverse=True
-    )
-    return sorted_trends[:limit]
-
-# Select Random Trend of the Day
-def get_trend_of_the_day(trends):
-    if not trends:
-        return None
-    today = date.today().isoformat()
-    random.seed(today)
-    return random.choice(trends)
-
 def get_hacker_news():
     url = 'https://news.ycombinator.com/'
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
@@ -1034,7 +1010,6 @@ def home():
         trends = global_trends
     random.shuffle(trends)
     trend_of_the_day = get_trend_of_the_day(trends)
-    top_trends = get_top_trends(trends, limit=5)
     unique_sources = sorted(set(trend['source'] for trend in trends))
     vote_counts = db.session.query(
         Vote.trend_id,
@@ -1046,12 +1021,11 @@ def home():
         if v.trend_id not in vote_counts_dict:
             vote_counts_dict[v.trend_id] = {}
         vote_counts_dict[v.trend_id][v.vote_type] = v.count
-    logger.debug(f"Trends count: {len(trends)}, Sources: {unique_sources}, Top trends: {len(top_trends)}")
+    logger.debug(f"Trends count: {len(trends)}, Sources: {unique_sources}")
     return render_template(
         'index.html',
         trends=trends,
         trend_of_the_day=trend_of_the_day,
-        top_trends=top_trends,
         unique_sources=unique_sources,
         vote_counts=vote_counts_dict
     )
@@ -1122,8 +1096,6 @@ def test_vote():
         trend = Trend.query.get(test_trend_id)
         if not trend:
             trend = Trend(
-               
-
                 id=test_trend_id,
                 title="Test Trend",
                 description="Test trend for voting",
