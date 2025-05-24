@@ -5,7 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Trendii - Trending Across the Web</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <style>
+#source-filters label {
+      display: flex;
+      align-items: center;
+      background-color: #e0f2f1;
+      border-radius: 20px;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.9rem;
+      color: #004d40;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    #source-filters label:hover {
+      background-color: #b2dfdb;
+    }
+    #source-filters input[type="checkbox"] {
+      margin-right: 6px;
+    }
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: var(--bg-color);
@@ -15,16 +33,11 @@
     header {
       background: var(--header-bg);
       color: var(--header-text);
-      padding: 0.5rem 1rem;
-      font-size: 1.5rem;
-      font-weight: 700;
+      padding: 1rem;
+      font-size: 2rem;
       text-align: center;
+      font-weight: 700;
       user-select: none;
-      position: fixed;
-      top: 0;
-      width: 100%;
-      z-index: 1000;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .container {
       display: grid;
@@ -108,38 +121,26 @@
     video { outline: none; }
     /* Trend of the Day Styling */
     .trend-of-the-day {
-      background: linear-gradient(90deg, #ff8a80, #4fc3f7);
-      border: 1px solid #ffd700;
-      border-radius: 8px;
-      padding: 0.5rem;
+      background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+      border: 2px solid #ffd700;
+      border-radius: 10px;
+      padding: 1rem;
       margin: 1rem auto;
       max-width: 600px;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      animation: pulse 2s infinite;
     }
-    .trend-of-the-day img {
-      width: 80px;
-      height: 80px;
-      max-height: none;
-      border-radius: 6px;
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
     }
     .trend-of-the-day h2 {
-      font-size: 1rem;
+      font-size: 1.5rem;
       color: white;
-      margin: 0;
-      flex-grow: 1;
     }
     .trend-of-the-day .source {
       background-color: rgba(0, 0, 0, 0.7);
-      font-size: 0.7rem;
-    }
-    .trend-of-the-day .mood-tags {
-      margin: 0;
-    }
-    .trend-of-the-day .mood-tags .badge {
-      font-size: 0.7rem;
     }
     /* Mood Tags Styling */
     .mood-tags {
@@ -151,57 +152,21 @@
     .mood-tags .badge {
       font-size: 0.8rem;
     }
-    /* Filter Styling */
-    .filter-container {
-      padding: 1rem;
-      max-width: 1200px;
-      margin: 1rem auto;
-      background: var(--filter-bg);
-      border-radius: 10px;
-    }
-    .filter-container .accordion-button {
-      background: var(--filter-label-bg);
-      color: var(--filter-label-text);
-      font-weight: 500;
-      transition: background-color 0.2s ease;
-    }
-    .filter-container .accordion-button:hover {
-      background: #b2dfdb;
-    }
-    .filter-container .accordion-body {
-      background: var(--card-bg);
-      padding: 0.5rem;
-    }
-    .filter-container .form-check-label {
-      cursor: pointer;
-      padding: 0.3rem 0.5rem;
-      border-radius: 5px;
-      transition: background-color 0.2s ease;
-    }
-    .filter-container .form-check-label:hover {
-      background: #e0f2f1;
-    }
-    /* Offcanvas Styling */
-    .offcanvas {
-      background: var(--card-bg);
-      color: var(--text-color);
-    }
-    .offcanvas-header {
-      background: var(--header-bg);
-      color: var(--header-text);
-    }
-    /* Mobile Adjustments */
     @media (max-width: 768px) {
-      body {
-        padding-top: 60px; /* Space for fixed header */
-      }
       header {
-        font-size: 1.3rem;
-        padding: 0.5rem;
+        font-size: 1.5rem;
+        padding: 0.7rem;
       }
-      .container {
-        grid-template-columns: 1fr; /* Single column on mobile */
-        padding: 0.5rem;
+      #filter-bar {
+        padding: 1rem 0.5rem;
+      }
+      #source-filters {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      #source-filters label {
+        width: 100%;
+        justify-content: flex-start;
       }
       .card {
         padding: 0.8rem;
@@ -219,21 +184,8 @@
         font-size: 0.85rem;
         padding: 0.25rem 0.5rem;
       }
-      .trend-of-the-day {
-        flex-direction: column;
-        align-items: flex-start;
-        margin: 0.5rem;
-        padding: 0.5rem;
-      }
-      .trend-of-the-day img {
-        width: 60px;
-        height: 60px;
-      }
       .trend-of-the-day h2 {
-        font-size: 0.9rem;
-      }
-      .filter-container {
-        display: none; /* Hide filters on mobile, use offcanvas */
+        font-size: 1.2rem;
       }
     }
     @media (max-width: 480px) {
@@ -243,12 +195,15 @@
       .description {
         font-size: 0.85rem;
       }
+      header {
+        font-size: 1.3rem;
+      }
       .btn {
         font-size: 0.8rem;
         padding: 0.3rem 0.6rem;
       }
     }
-    /* Source-specific card styles */
+    /* Existing source-specific card styles */
     .card.HackerTrending { border-left: 4px solid #ff6600; background: #fff6f0; }
     .card.GithubTrending { border-left: 4px solid #24292e; background: #f8f9fa; }
     .card.RedditTrending { border-left: 4px solid #ff4500; background: #fff0f0; }
@@ -305,215 +260,193 @@
       --filter-label-bg: #fce4ec;
       --filter-label-text: #d81b60;
     }
+    #mobile-filter-toggle {
+      display: none;
+      background-color: var(--filter-bg);
+      color: var(--filter-text);
+      border: none;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      width: 100%;
+      text-align: left;
+    }
+    #filter-collapse {
+      background: var(--filter-bg);
+    }
+    .collapse .filter-section {
+      padding: 1rem;
+    }
+
+    /* Collapsible filters for desktop */
+    #desktop-filters.collapsed .filter-section {
+      display: none;
+    }
+    #desktop-filters-toggle {
+      margin-bottom: 0.5rem;
+    }
+
+    /* Trend of the Day as a compact banner */
+    .trend-of-the-day {
+      background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+      border: 2px solid #ffd700;
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      margin: 1rem auto;
+      max-width: 95%;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .trend-of-the-day h2 {
+      font-size: 1.2rem;
+      margin-bottom: 0.3rem;
+      color: white;
+    }
+    .trend-of-the-day .card {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.5rem;
+      background: transparent;
+      box-shadow: none;
+    }
+    .trend-of-the-day .card img {
+      max-width: 80px;
+      height: auto;
+      border-radius: 8px;
+    }
+    .trend-of-the-day .card .description {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      #mobile-filter-toggle {
+        display: block;
+      }
+      #desktop-filters {
+        display: none;
+      }
+    }
+    @media (min-width: 769px) {
+      #filter-collapse {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body>
   <header>
-    <button class="navbar-toggler d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#filterOffcanvas" aria-controls="filterOffcanvas">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    🔥 Trendii Now
+    🔥 Trendii Now - Trending Across the Web
     <button id="theme-toggle" class="btn btn-sm btn-outline-light ms-3">Toggle Theme</button>
   </header>
-  <div class="offcanvas offcanvas-start" tabindex="-1" id="filterOffcanvas" aria-labelledby="filterOffcanvasLabel">
-    <div class="offcanvas-header">
-      <h5 class="offcanvas-title" id="filterOffcanvasLabel">Filter Sources</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body">
-      <div class="filter-container">
-        <div class="form-check mb-2">
-          <input class="form-check-input" type="checkbox" id="all-sources" checked>
-          <label class="form-check-label" for="all-sources">All Sources</label>
-        </div>
-        <div class="accordion" id="sourceAccordion">
-          {% set source_groups = {
-            'News': ['From Reuters', 'From CNN', 'From BBC'],
-            'Social Media': ['From Reddit', 'From X', 'From YouTube'],
-            'Tech': ['From Hacker', 'From Github', 'From Techcrunch', 'From Stackoverflow', 'From Mediumtech', 'From Devto', 'From Lobsters', 'From Slashdot', 'From ArsTechnica', 'From Wired'],
-            'Entertainment': ['From IMDb', 'From Billboard', 'From Spotify', 'From Goodreads'],
-            'Other': ['From SteamCharts', 'From Digg']
-          } %}
-          {% for category, sources in source_groups.items() %}
-            {% if sources|select('in', unique_sources)|list %}
-              <div class="accordion-item">
-                <h2 class="accordion-header" id="heading{{ category|replace(' ', '') }}">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ category|replace(' ', '') }}" aria-expanded="false" aria-controls="collapse{{ category|replace(' ', '') }}">
-                    {{ category }}
-                  </button>
-                </h2>
-                <div id="collapse{{ category|replace(' ', '') }}" class="accordion-collapse collapse" aria-labelledby="heading{{ category|replace(' ', '') }}" data-bs-parent="#sourceAccordion">
-                  <div class="accordion-body">
-                    {% for source in sources %}
-                      {% if source in unique_sources %}
-                        <div class="form-check">
-                          <input class="form-check-input source-checkbox" type="checkbox" value="{{ source }}" id="source{{ source|replace(' ', '') }}" checked>
-                          <label class="form-check-label" for="source{{ source|replace(' ', '') }}">{{ source }}</label>
-                        </div>
-                      {% endif %}
-                    {% endfor %}
-                  </div>
-                </div>
-              </div>
-            {% endif %}
-          {% endfor %}
-        </div>
+
+  <!-- Trend of the Day -->
+  {% if trend_of_the_day %}
+  <section class="trend-of-the-day">
+    <h2>🌟 Trend of the Day</h2>
+    <article class="card {{ trend_of_the_day.source_class }}" data-id="{{ trend_of_the_day.id }}">
+      {% if trend_of_the_day.image %}
+        <img src="{{ trend_of_the_day.image }}" alt="Image for {{ trend_of_the_day.title }}" />
+      {% endif %}
+      <div>
+        <h2><a href="/trend/{{ trend_of_the_day.id }}">{{ trend_of_the_day.title }}</a></h2>
+        <span class="source {{ trend_of_the_day.source_class }}">{{ trend_of_the_day.source }}</span>
+      </div>
+    </article>
+  </section>
+  {% endif %}
+
+  <!-- Mobile Filter Toggle -->
+  <button class="btn btn-secondary" id="mobile-filter-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#filter-collapse" aria-expanded="false" aria-controls="filter-collapse">
+    Filter Sources
+  </button>
+
+  <div class="collapse" id="filter-collapse">
+    <div class="filter-section">
+      <strong style="color: var(--filter-text);">Filter by Source:</strong>
+      <div id="source-filters" class="d-flex flex-wrap gap-2 mt-2">
+        <label><input type="checkbox" id="all-sources" checked> All Sources</label>
+        {% for source in unique_sources %}
+          <label><input type="checkbox" value="{{ source }}" class="source-checkbox" checked> {{ source }}</label>
+        {% endfor %}
       </div>
     </div>
   </div>
-  {% if trend_of_the_day %}
-  <section class="trend-of-the-day">
-    {% if trend_of_the_day.image %}
-      <img src="{{ trend_of_the_day.image }}" alt="Image for {{ trend_of_the_day.title }}" />
-    {% endif %}
-    <div>
-      <h2><a href="/trend/{{ trend_of_the_day.id }}">{{ trend_of_the_day.title }}</a></h2>
-      <span class="source {{ trend_of_the_day.source_class }}">{{ trend_of_the_day.source }}</span>
-      {% if trend_of_the_day.mood_tags %}
+
+  <!-- Desktop Collapsible Filters -->
+  <div id="desktop-filters" class="text-center mt-2">
+    <button class="btn btn-sm btn-outline-primary" id="desktop-filters-toggle">Toggle Filters</button>
+    <div class="filter-section mt-2">
+      <strong style="color: var(--filter-text);">Filter by Source:</strong>
+      <div id="source-filters-desktop" class="d-flex flex-wrap gap-2 mt-2 justify-content-center">
+        <label><input type="checkbox" id="all-sources-desktop" checked> All Sources</label>
+        {% for source in unique_sources %}
+          <label><input type="checkbox" value="{{ source }}" class="source-checkbox" checked> {{ source }}</label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <main class="container">
+    {% for trend in trends %}
+    <article class="card {{ trend.source_class }}" data-id="{{ trend.id }}">
+      <h2><a href="/trend/{{ trend.id }}">{{ trend.title }}</a></h2>
+      {% if trend.image %}
+        <img src="{{ trend.image }}" alt="Image for {{ trend.title }}" />
+      {% endif %}
+      {% if trend.description %}
+        <p class="description">{{ trend.description }}</p>
+      {% endif %}
+      {% if trend.mood_tags %}
         <div class="mood-tags">
-          {% for tag in trend_of_the_day.mood_tags %}
+          {% for tag in trend.mood_tags %}
             <span class="badge bg-primary">{{ tag }}</span>
           {% endfor %}
         </div>
       {% endif %}
-      <a href="{{ trend_of_the_day.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-1">See More</a>
-    </div>
-  </section>
-  {% endif %}
-  <div class="filter-container d-none d-md-block">
-    <h5>Filter by Source</h5>
-    <div class="form-check mb-2">
-      <input class="form-check-input" type="checkbox" id="all-sources-desktop" checked>
-      <label class="form-check-label" for="all-sources-desktop">All Sources</label>
-    </div>
-    <div class="accordion" id="sourceAccordionDesktop">
-      {% for category, sources in source_groups.items() %}
-  {% set matching_sources = [] %}
-  {% for source in sources %}
-    {% if source in unique_sources %}
-      {% do matching_sources.append(source) %}
-    {% endif %}
-  {% endfor %}
-  {% if matching_sources %}
-    <div class="accordion-item">
-      <h2 class="accordion-header" id="heading{{ category|replace(' ', '') }}">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ category|replace(' ', '') }}" aria-expanded="false" aria-controls="collapse{{ category|replace(' ', '') }}">
-          {{ category }}
-        </button>
-      </h2>
-      <div id="collapse{{ category|replace(' ', '') }}" class="accordion-collapse collapse" aria-labelledby="heading{{ category|replace(' ', '') }}" data-bs-parent="#sourceAccordion">
-        <div class="accordion-body">
-          {% for source in matching_sources %}
-            <div class="form-check">
-              <input class="form-check-input source-checkbox" type="checkbox" value="{{ source }}" id="source{{ source|replace(' ', '') }}" checked>
-              <label class="form-check-label" for="source{{ source|replace(' ', '') }}">{{ source }}</label>
-            </div>
-          {% endfor %}
-        </div>
+      <span class="source {{ trend.source_class }}">{{ trend.source }}</span>
+      <p>Trending: {{ time_ago(trend.timestamp) }}</p>
+      <div class="votes d-flex gap-2">
+        <button class="vote-btn btn btn-outline-primary btn-sm" data-type="thumbs_up">👍 <span class="vote-count" data-type="thumbs_up">{{ vote_counts.get(trend.id, {}).get('thumbs_up', 0) }}</span></button>
+        <button class="vote-btn btn btn-outline-danger btn-sm" data-type="fire">🔥 <span class="vote-count" data-type="fire">{{ vote_counts.get(trend.id, {}).get('fire', 0) }}</span></button>
+        <button class="vote-btn btn btn-outline-info btn-sm" data-type="mind_blown">😲 <span class="vote-count" data-type="mind_blown">{{ vote_counts.get(trend.id, {}).get('mind_blown', 0) }}</span></button>
       </div>
-    </div>
-  {% endif %}
-{% endfor %}
+      <a href="{{ trend.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-3 align-self-start">See More</a>
+    </article>
+    {% endfor %}
+  </main>
 
-      </div>
-    </div>
-    <main class="container">
-      {% for trend in trends %}
-      <article class="card {{ trend.source_class }}" data-id="{{ trend.id }}">
-        <h2><a href="/trend/{{ trend.id }}">{{ trend.title }}</a></h2>
-        {% if trend.image %}
-          <img src="{{ trend.image }}" alt="Image for {{ trend.title }}" />
-        {% endif %}
-        {% if trend.description %}
-          <p class="description">{{ trend.description }}</p>
-        {% endif %}
-        {% if trend.mood_tags %}
-          <div class="mood-tags">
-            {% for tag in trend.mood_tags %}
-              <span class="badge bg-primary">{{ tag }}</span>
-            {% endfor %}
-          </div>
-        {% endif %}
-        <span class="source {{ trend.source_class }}">{{ trend.source }}</span>
-        <p>Trending: {{ time_ago(trend.timestamp) }}</p>
-        <div class="votes d-flex gap-2">
-          <button class="vote-btn btn btn-outline-primary btn-sm" data-type="thumbs_up">👍 <span class="vote-count" data-type="thumbs_up">{{ vote_counts.get(trend.id, {}).get('thumbs_up', 0) }}</span></button>
-          <button class="vote-btn btn btn-outline-danger btn-sm" data-type="fire">🔥 <span class="vote-count" data-type="fire">{{ vote_counts.get(trend.id, {}).get('fire', 0) }}</span></button>
-          <button class="vote-btn btn btn-outline-info btn-sm" data-type="mind_blown">😲 <span class="vote-count" data-type="mind_blown">{{ vote_counts.get(trend.id, {}).get('mind_blown', 0) }}</span></button>
-        </div>
-        <a href="{{ trend.link }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary mt-3 align-self-start">See More</a>
-      </article>
-      {% endfor %}
-    </main>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-      const allSourcesCheckboxes = document.querySelectorAll('#all-sources, #all-sources-desktop');
-      const checkboxes = document.querySelectorAll('.source-checkbox');
-      const articles = document.querySelectorAll('.card');
+  <script>
+    document.getElementById('desktop-filters-toggle')?.addEventListener('click', () => {
+      document.getElementById('desktop-filters')?.classList.toggle('collapsed');
+    });
 
-      function filterArticles() {
-        const activeSources = Array.from(checkboxes)
-          .filter(c => c.checked)
-          .map(c => c.value);
-        articles.forEach(card => {
-          const sourceText = card.querySelector('.source')?.textContent.trim();
-          card.style.display = activeSources.includes(sourceText) ? '' : 'none';
-        });
-      }
+    const allSourcesCheckbox = document.getElementById('all-sources');
+    const allSourcesCheckboxDesktop = document.getElementById('all-sources-desktop');
+    const checkboxes = document.querySelectorAll('.source-checkbox');
+    const articles = document.querySelectorAll('.card');
 
-      allSourcesCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', () => {
-          const isChecked = checkbox.checked;
-          checkboxes.forEach(cb => cb.checked = isChecked);
-          allSourcesCheckboxes.forEach(cb => cb.checked = isChecked);
-          filterArticles();
-        });
+    function filterArticles() {
+      const activeSources = Array.from(checkboxes).filter(c => c.checked).map(c => c.value);
+      articles.forEach(card => {
+        const sourceClass = card.className.split(" ").find(cls => cls.endsWith("Trending"));
+        if (!sourceClass || activeSources.includes(sourceClass.replace('Trending', ''))) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
       });
+    }
 
-      checkboxes.forEach(cb => {
-        cb.addEventListener('change', () => {
-          const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-          allSourcesCheckboxes.forEach(cb => cb.checked = allChecked);
-          filterArticles();
-        });
+    checkboxes.forEach(cb => cb.addEventListener('change', filterArticles));
+    [allSourcesCheckbox, allSourcesCheckboxDesktop].forEach(mainCb => {
+      mainCb?.addEventListener('change', () => {
+        checkboxes.forEach(cb => cb.checked = mainCb.checked);
+        filterArticles();
       });
-
-      window.addEventListener('DOMContentLoaded', filterArticles);
-
-      document.querySelectorAll('.vote-btn').forEach(button => {
-        button.addEventListener('click', () => {
-          const trendDiv = button.closest('.card');
-          const trendId = trendDiv.getAttribute('data-id');
-          const voteType = button.getAttribute('data-type');
-          fetch('/api/vote', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ trend_id: trendId, vote_type: voteType })
-          })
-          .then(res => res.json())
-          .then(data => {
-            if (!data.error) {
-              trendDiv.querySelectorAll('.vote-count').forEach(span => {
-                const type = span.getAttribute('data-type');
-                span.textContent = data[type] || 0;
-              });
-            } else {
-              alert('Error: ' + data.error);
-            }
-          });
-        });
-      });
-
-      function setTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-      }
-      document.getElementById('theme-toggle').addEventListener('click', () => {
-        const current = localStorage.getItem('theme') || 'light';
-        const next = current === 'light' ? 'dark' : current === 'dark' ? 'fun' : 'light';
-        setTheme(next);
-      });
-      setTheme(localStorage.getItem('theme') || 'light');
-    </script>
-  </body>
+    });
+  </script>
+</body>
 </html>
