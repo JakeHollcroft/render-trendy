@@ -524,61 +524,76 @@
     <a href="/">Home</a>
   </footer>
 
+<script>
+  document.getElementById('desktop-filters-toggle')?.addEventListener('click', () => {
+    document.getElementById('desktop-filters')?.classList.toggle('collapsed');
+  });
 
-  <script>
-    document.getElementById('desktop-filters-toggle')?.addEventListener('click', () => {
-      document.getElementById('desktop-filters')?.classList.toggle('collapsed');
+  const allSourcesCheckbox = document.getElementById('all-sources');
+  const allSourcesCheckboxDesktop = document.getElementById('all-sources-desktop');
+  const checkboxes = document.querySelectorAll('.source-checkbox');
+  const articles = document.querySelectorAll('.card');
+
+  function filterArticles() {
+    const activeSources = Array.from(checkboxes)
+      .filter(c => c.checked)
+      .map(c => c.value);
+
+    articles.forEach(card => {
+      const sourceText = card.querySelector('.source')?.textContent.trim();
+      card.style.display = activeSources.includes(sourceText) ? '' : 'none';
     });
+  }
 
-    const allSourcesCheckbox = document.getElementById('all-sources');
-    const allSourcesCheckboxDesktop = document.getElementById('all-sources-desktop');
-    const checkboxes = document.querySelectorAll('.source-checkbox');
-    const articles = document.querySelectorAll('.card');
+  // Sync logic for both "All Sources" checkboxes
+  function syncAllSourcesCheckboxes(isChecked) {
+    if (allSourcesCheckbox) allSourcesCheckbox.checked = isChecked;
+    if (allSourcesCheckboxDesktop) allSourcesCheckboxDesktop.checked = isChecked;
+  }
 
-    function filterArticles() {
-      const activeSources = Array.from(checkboxes).filter(c => c.checked).map(c => c.value);
-      articles.forEach(card => {
-        const sourceClass = card.className.split(" ").find(cls => cls.endsWith("Trending"));
-        if (!sourceClass || activeSources.includes(sourceClass.replace('Trending', ''))) {
-          card.style.display = 'block';
-        } else {
-          card.style.display = 'none';
-        }
-      });
-    }
-
-    checkboxes.forEach(cb => cb.addEventListener('change', filterArticles));
-    [allSourcesCheckbox, allSourcesCheckboxDesktop].forEach(mainCb => {
-      mainCb?.addEventListener('change', () => {
-        checkboxes.forEach(cb => cb.checked = mainCb.checked);
-        filterArticles();
-      });
+  // Toggle all sources ON/OFF from either "All Sources" checkbox
+  [allSourcesCheckbox, allSourcesCheckboxDesktop].forEach(mainCb => {
+    mainCb?.addEventListener('change', () => {
+      const isChecked = mainCb.checked;
+      checkboxes.forEach(cb => cb.checked = isChecked);
+      syncAllSourcesCheckboxes(isChecked);
+      filterArticles();
     });
+  });
 
-        const themes = ['light', 'dark', 'fun', 'solarized', 'neon'];
-    let currentThemeIndex = 0;
-
-    function applyTheme(theme) {
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('trendii-theme', theme);
-    }
-
-    function loadTheme() {
-      const savedTheme = localStorage.getItem('trendii-theme');
-      if (savedTheme && themes.includes(savedTheme)) {
-        currentThemeIndex = themes.indexOf(savedTheme);
-        applyTheme(savedTheme);
-      } else {
-        applyTheme('light');
-      }
-    }
-
-    document.getElementById('theme-toggle').addEventListener('click', () => {
-      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-      applyTheme(themes[currentThemeIndex]);
+  // Individual checkbox changes
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', () => {
+      const allChecked = Array.from(checkboxes).every(c => c.checked);
+      syncAllSourcesCheckboxes(allChecked);
+      filterArticles();
     });
+  });
 
-    loadTheme();
-  </script>
-</body>
-</html>
+  // Theme switching
+  const themes = ['light', 'dark', 'fun', 'solarized', 'neon'];
+  let currentThemeIndex = 0;
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('trendii-theme', theme);
+  }
+
+  function loadTheme() {
+    const savedTheme = localStorage.getItem('trendii-theme');
+    if (savedTheme && themes.includes(savedTheme)) {
+      currentThemeIndex = themes.indexOf(savedTheme);
+      applyTheme(savedTheme);
+    } else {
+      applyTheme('light');
+    }
+  }
+
+  document.getElementById('theme-toggle')?.addEventListener('click', () => {
+    currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+    applyTheme(themes[currentThemeIndex]);
+  });
+
+  loadTheme();
+  filterArticles(); // Initial filter pass
+</script>
