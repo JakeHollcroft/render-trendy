@@ -205,7 +205,7 @@ def get_hacker_news():
                 'link': link,
                 'source': 'From Hacker News',
                 'source_class': 'HackerTrending',
-                'image': '/static/images/default_trendy.svg',
+                'image': '/static/images/default_trendy.png',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
