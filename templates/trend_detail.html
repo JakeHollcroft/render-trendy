@@ -24,48 +24,68 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-  :root {
-    --bg-color: #f8f9fa;
-    --card-bg: #ffffff;
-    --text-color: #333;
-    --header-bg: #00796b;
-    --header-text: #ffffff;
-  }
-  [data-theme="dark"] {
-    --bg-color: #2c2c2c;
-    --card-bg: #2c2c2c;
-    --text-color: #e0e0e0;
-    --header-bg: #004d40;
-    --header-text: #e0e0e0;
-  }
-  [data-theme="dark"] .text-muted {
-    color: #a0a0a0 !important; /* Lighter gray for muted text in dark theme */
-  }
-  [data-theme="dark"] .card-title,
-  [data-theme="dark"] h4,
-  [data-theme="dark"] .summary-block,
-  [data-theme="dark"] a {
-    color: #e0e0e0 !important; /* Ensure all text is light in dark theme */
-  }
-  [data-theme="dark"] .btn-outline-primary,
-  [data-theme="dark"] .btn-outline-danger,
-  [data-theme="dark"] .btn-outline-info {
-    color: #e0e0e0 !important; /* Light text for buttons */
-    border-color: #e0e0e0 !important; /* Light border for buttons */
-  }
-  [data-theme="dark"] .btn-outline-primary:hover,
-  [data-theme="dark"] .btn-outline-danger:hover,
-  [data-theme="dark"] .btn-outline-info:hover {
-    background-color: #555 !important; /* Hover background for contrast */
-    color: #ffffff !important; /* White text on hover */
-  }
-  [data-theme="fun"] {
-    --bg-color: #fff9c4;
-    --card-bg: #fff9c4;
-    --text-color: #d81b60;
-    --header-bg: #f06292;
-    --header-text: #ffffff;
-  }
+   :root {
+      --bg-color: linear-gradient(to bottom, #e0f7fa, #ffffff);
+      --card-bg: #ffffff;
+      --text-color: #333;
+      --header-bg: #00796b;
+      --header-text: #ffffff;
+      --filter-bg: #00796b;
+      --filter-text: #ffffff;
+      --filter-label-bg: #e0f2f1;
+      --filter-label-text: #004d40;
+    }
+    [data-theme="dark"] {
+      --bg-color: linear-gradient(to bottom, #1a1a1a, #2c2c2c);
+      --card-bg: #2c2c2c;
+      --text-color: #e0e0e0;
+      --header-bg: #004d40;
+      --header-text: #e0e0e0;
+      --filter-bg: #004d40;
+      --filter-text: #e0e0e0;
+      --filter-label-bg: #455a64;
+      --filter-label-text: #e0e0e0;
+    }
+    [data-theme="fun"] {
+      --bg-color: linear-gradient(to bottom, #ffeb3b, #ffca28);
+      --card-bg: #fff9c4;
+      --text-color: #d81b60;
+      --header-bg: #f06292;
+      --header-text: #ffffff;
+      --filter-bg: #f06292;
+      --filter-text: #ffffff;
+      --filter-label-bg: #fce4ec;
+      --filter-label-text: #d81b60;
+    }
+
+    /* New themes */
+    [data-theme="solarized"] {
+      --bg-color: #fdf6e3;
+      --card-bg: #eee8d5;
+      --text-color: #657b83;
+      --header-bg: #268bd2;
+      --header-text: #fdf6e3;
+      --filter-bg: #268bd2;
+      --filter-text: #fdf6e3;
+      --filter-label-bg: #eee8d5;
+      --filter-label-text: #657b83;
+    }
+    [data-theme="neon"] {
+      --bg-color: linear-gradient(135deg, #0ff, #f0f);
+      --card-bg: #111;
+      --text-color: #0ff;
+      --header-bg: #f0f;
+      --header-text: #0ff;
+      --filter-bg: #f0f;
+      --filter-text: #0ff;
+      --filter-label-bg: #222;
+      --filter-label-text: #0ff;
+    }
+
+    #theme-toggle {
+      cursor: pointer;
+      user-select: none;
+    }
   body {
     background: var(--bg-color);
     color: var(--text-color);
@@ -155,16 +175,30 @@
 <script>
   // ... (keep existing vote script) ...
 
-  function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }
-  document.getElementById('theme-toggle').addEventListener('click', () => {
-    const current = localStorage.getItem('theme') || 'light';
-    const next = current === 'light' ? 'dark' : current === 'dark' ? 'fun' : 'light';
-    setTheme(next);
-  });
-  setTheme(localStorage.getItem('theme') || 'light');
+    const themes = ['light', 'dark', 'fun', 'solarized', 'neon'];
+    let currentThemeIndex = 0;
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('trendii-theme', theme);
+    }
+
+    function loadTheme() {
+      const savedTheme = localStorage.getItem('trendii-theme');
+      if (savedTheme && themes.includes(savedTheme)) {
+        currentThemeIndex = themes.indexOf(savedTheme);
+        applyTheme(savedTheme);
+      } else {
+        applyTheme('light');
+      }
+    }
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+      applyTheme(themes[currentThemeIndex]);
+    });
+
+    loadTheme();
 </script>
 </body>
 </html>

@@ -334,6 +334,68 @@
         display: none !important;
       }
     }
+     :root {
+      --bg-color: linear-gradient(to bottom, #e0f7fa, #ffffff);
+      --card-bg: #ffffff;
+      --text-color: #333;
+      --header-bg: #00796b;
+      --header-text: #ffffff;
+      --filter-bg: #00796b;
+      --filter-text: #ffffff;
+      --filter-label-bg: #e0f2f1;
+      --filter-label-text: #004d40;
+    }
+    [data-theme="dark"] {
+      --bg-color: linear-gradient(to bottom, #1a1a1a, #2c2c2c);
+      --card-bg: #2c2c2c;
+      --text-color: #e0e0e0;
+      --header-bg: #004d40;
+      --header-text: #e0e0e0;
+      --filter-bg: #004d40;
+      --filter-text: #e0e0e0;
+      --filter-label-bg: #455a64;
+      --filter-label-text: #e0e0e0;
+    }
+    [data-theme="fun"] {
+      --bg-color: linear-gradient(to bottom, #ffeb3b, #ffca28);
+      --card-bg: #fff9c4;
+      --text-color: #d81b60;
+      --header-bg: #f06292;
+      --header-text: #ffffff;
+      --filter-bg: #f06292;
+      --filter-text: #ffffff;
+      --filter-label-bg: #fce4ec;
+      --filter-label-text: #d81b60;
+    }
+
+    /* New themes */
+    [data-theme="solarized"] {
+      --bg-color: #fdf6e3;
+      --card-bg: #eee8d5;
+      --text-color: #657b83;
+      --header-bg: #268bd2;
+      --header-text: #fdf6e3;
+      --filter-bg: #268bd2;
+      --filter-text: #fdf6e3;
+      --filter-label-bg: #eee8d5;
+      --filter-label-text: #657b83;
+    }
+    [data-theme="neon"] {
+      --bg-color: linear-gradient(135deg, #0ff, #f0f);
+      --card-bg: #111;
+      --text-color: #0ff;
+      --header-bg: #f0f;
+      --header-text: #0ff;
+      --filter-bg: #f0f;
+      --filter-text: #0ff;
+      --filter-label-bg: #222;
+      --filter-label-text: #0ff;
+    }
+
+    #theme-toggle {
+      cursor: pointer;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
@@ -447,6 +509,31 @@
         filterArticles();
       });
     });
+
+        const themes = ['light', 'dark', 'fun', 'solarized', 'neon'];
+    let currentThemeIndex = 0;
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('trendii-theme', theme);
+    }
+
+    function loadTheme() {
+      const savedTheme = localStorage.getItem('trendii-theme');
+      if (savedTheme && themes.includes(savedTheme)) {
+        currentThemeIndex = themes.indexOf(savedTheme);
+        applyTheme(savedTheme);
+      } else {
+        applyTheme('light');
+      }
+    }
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+      applyTheme(themes[currentThemeIndex]);
+    });
+
+    loadTheme();
   </script>
 </body>
 </html>
