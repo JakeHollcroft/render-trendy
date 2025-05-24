@@ -238,7 +238,7 @@ def get_github_trending():
                 'link': link,
                 'source': 'From GitHub',
                 'source_class': 'GithubTrending',
-                'image': '/static/images/default_trendy.svg',
+                'image': '/static/images/default_trendy.png',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -290,7 +290,7 @@ def get_reddit_top():
                 'link': reddit_url,
                 'source': 'From Reddit',
                 'source_class': 'RedditTrending',
-                'image': image_url if image_url else '/static/images/default_trendy.svg',
+                'image': image_url if image_url else '/static/images/default_trendy.png',
                 'video': video_url,
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -360,7 +360,7 @@ def get_stackoverflow_trending():
                 'link': link,
                 'source': 'From Stack Overflow',
                 'source_class': 'StackoverflowTrending',
-                'image': '/static/images/default_trendy.svg',
+                'image': '/static/images/default_trendy.png',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -399,7 +399,7 @@ def get_devto_latest():
                 'link': link,
                 'source': 'From Dev.to',
                 'source_class': 'DevtoTrending',
-                'image': '/static/images/default_trendy.svg',
+                'image': '/static/images/default_trendy.png',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -435,7 +435,7 @@ def get_medium_technology():
                 'link': link,
                 'source': 'From Medium Technology',
                 'source_class': 'MediumtechTrending',
-                'image': '/static/images/default_trendy.svg',
+                'image': '/static/images/default_trendy.png',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -468,7 +468,7 @@ def get_lobsters():
                 'link': link,
                 'source': 'From Lobsters',
                 'source_class': 'LobstersTrending',
-                'image': '/static/images/default_trendy.svg',
+                'image': '/static/images/default_trendy.png',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -505,7 +505,7 @@ def get_slashdot():
                 'link': link,
                 'source': 'From Slashdot',
                 'source_class': 'SlashdotTrending',
-                'image': '/static/images/default_trendy.svg',
+                'image': '/static/images/default_trendy.png',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -616,7 +616,7 @@ def get_youtube_trending(YOUTUBE_API_KEY):
             title = snippet.get('title', '')
             description = snippet.get('description', '')
             link = f'https://www.youtube.com/watch?v={video_id}'
-            image = snippet.get('thumbnails', {}).get('medium', {}).get('url', '/static/images/default_trendy.svg')
+            image = snippet.get('thumbnails', {}).get('medium', {}).get('url', '/static/images/default_trendy.png')
             trend = {
                 'title': title,
                 'description': description,
@@ -653,7 +653,7 @@ def get_ars_technica():
             desc_tag = item.select_one('p.excerpt')
             description = desc_tag.text.strip() if desc_tag else ''
             image_tag = item.select_one('img')
-            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
+            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.png'
             trend = {
                 'title': title,
                 'description': description,
@@ -691,7 +691,7 @@ def get_wired():
                 'link': link,
                 'source': 'From Wired',
                 'source_class': 'WiredTrending',
-                'image': '/static/images/default_trendy.svg',
+                'image': '/static/images/default_trendy.png',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -791,7 +791,7 @@ def get_spotify_charts(client_id, client_secret):
             artist = ', '.join(artist['name'] for artist in track['artists'])
             description = f'{title} by {artist}'
             link = track['external_urls']['spotify']
-            image = track['album']['images'][0]['url'] if track['album']['images'] else '/static/images/default_trendy.svg'
+            image = track['album']['images'][0]['url'] if track['album']['images'] else '/static/images/default_trendy.png'
             trend = {
                 'title': title,
                 'description': description,
@@ -829,7 +829,7 @@ def get_billboard_trending():
                 'link': url,
                 'source': 'From Billboard',
                 'source_class': 'BillboardTrending',
-                'image': '/static/images/default_trendy.svg',
+                'image': '/static/images/default_trendy.png',
                 'video': None,
                 'timestamp': datetime.utcnow().isoformat()
             }
@@ -864,7 +864,7 @@ def get_imdb_trending():
             year = year_span.text.strip() if year_span else ''
             description = f'Rank #{i+1} trending on IMDb Moviemeter {year}'
             image_tag = row.select_one('img.ipc-image')
-            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
+            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.png'
             trend = {
                 'title': title,
                 'description': description,
@@ -905,7 +905,7 @@ def get_cnn_trending():
                 link = f'https://www.cnn.com{link}'
             description = f'#{i+1} on CNN World'
             image_tag = article.find_parent().select_one('img')
-            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.svg'
+            image = image_tag['src'] if image_tag and image_tag.has_attr('src') else '/static/images/default_trendy.png'
             trend = {
                 'title': title,
                 'description': description,
@@ -956,7 +956,7 @@ def fetch_reuters_trending():
                 "link": link,
                 "source": "From Reuters",
                 "source_class": "ReutersTrending",
-                "image": "/static/images/default_trendy.svg",
+                "image": "/static/images/default_trendy.png",
                 "video": None,
                 "timestamp": timestamp
             }
