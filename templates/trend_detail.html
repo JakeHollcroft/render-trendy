@@ -2,27 +2,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <!-- SEO Meta Tags -->
-<title>{{ trend.title }} - Trending Now</title>
-<meta name="description" content="{{ summary.meta_description }}">
-<meta name="keywords" content="{{ summary.meta_keywords }}">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<!-- Open Graph / Facebook -->
-<meta property="og:title" content="{{ trend.title }}">
-<meta property="og:description" content="{{ summary.meta_description }}">
-<meta property="og:image" content="{{ trend.image or url_for('static', filename='images/default_trendy.svg', _external=True) }}">
-<meta property="og:url" content="{{ request.url }}">
-<meta property="og:type" content="article">
+  <title>Trendii Now - {{ trend.title }} - Full Details & Insights</title>
+  <meta name="description" content="{{ trend.description[:150] }}..." />
+  <link rel="canonical" href="https://www.trendiinow.com/trend/{{ trend.id }}" />
 
-<!-- Twitter Card -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{{ trend.title }}">
-<meta name="twitter:description" content="{{ summary.meta_description }}">
-<meta name="twitter:image" content="{{ trend.image or url_for('static', filename='images/default_trendy.svg', _external=True) }}">
+  <!-- Open Graph -->
+  <meta property="og:title" content="Trendii Now - {{ trend.title }}" />
+  <meta property="og:description" content="{{ trend.description[:150] }}..." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://www.trendiinow.com/trend/{{ trend.id }}" />
+  <meta property="og:image" content="{{ trend.image or 'https://www.trendiinow.com/static/images/default-trend.png' }}" />
 
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Trendii Now - {{ trend.title }}" />
+  <meta name="twitter:description" content="{{ trend.description[:150] }}..." />
+  <meta name="twitter:image" content="{{ trend.image or 'https://www.trendiinow.com/static/images/default-trend.png' }}" />
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <style>
    :root {
       --bg-color: linear-gradient(to bottom, #e0f7fa, #ffffff);
@@ -34,6 +34,8 @@
       --filter-text: #ffffff;
       --filter-label-bg: #e0f2f1;
       --filter-label-text: #004d40;
+      --footer-bg: #1f1f1f;
+      --footer-text: #bbbbbb;
     }
     [data-theme="dark"] {
       --bg-color: linear-gradient(to bottom, #1a1a1a, #2c2c2c);
@@ -45,6 +47,8 @@
       --filter-text: #e0e0e0;
       --filter-label-bg: #455a64;
       --filter-label-text: #e0e0e0;
+      --footer-bg: #121212;
+      --footer-text: #999999;
     }
     [data-theme="fun"] {
       --bg-color: linear-gradient(to bottom, #ffeb3b, #ffca28);
@@ -56,9 +60,9 @@
       --filter-text: #ffffff;
       --filter-label-bg: #fce4ec;
       --filter-label-text: #d81b60;
+      --footer-bg: #f06292;
+      --footer-text: #fff3f8;
     }
-
-    /* New themes */
     [data-theme="solarized"] {
       --bg-color: #fdf6e3;
       --card-bg: #eee8d5;
@@ -69,6 +73,8 @@
       --filter-text: #fdf6e3;
       --filter-label-bg: #eee8d5;
       --filter-label-text: #657b83;
+      --footer-bg: #268bd2;
+      --footer-text: #fdf6e3;
     }
     [data-theme="neon"] {
       --bg-color: linear-gradient(135deg, #0ff, #f0f);
@@ -80,100 +86,146 @@
       --filter-text: #0ff;
       --filter-label-bg: #222;
       --filter-label-text: #0ff;
+      --footer-bg: #f0f;
+      --footer-text: #0ff;
     }
 
     #theme-toggle {
       cursor: pointer;
       user-select: none;
     }
-  body {
-    background: var(--bg-color);
-    color: var(--text-color);
-  }
-  .card {
-    background: var(--card-bg);
-  }
-  .card-title {
-    color: var(--text-color);
-  }
-  .btn-primary {
-    background: var(--header-bg);
-    border-color: var(--header-bg);
-  }
-</style>
+
+    body {
+      background: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card {
+      background: var(--card-bg);
+    }
+
+    .card-title {
+      color: var(--text-color);
+    }
+
+    .btn-primary {
+      background: var(--header-bg);
+      border-color: var(--header-bg);
+    }
+
+    header {
+      background-color: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem;
+      font-size: 2rem;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    footer {
+      background-color: var(--footer-bg);
+      color: var(--footer-text);
+      text-align: center;
+      padding: 1rem 0.5rem;
+      margin-top: auto;
+      font-size: 0.9rem;
+    }
+
+    footer a {
+      color: var(--footer-text);
+      text-decoration: underline;
+    }
+
+    footer a:hover,
+    footer a:focus {
+      color: var(--header-bg);
+      text-decoration: none;
+    }
+  </style>
 </head>
 <body class="bg-light">
-  <header style="background: var(--header-bg); color: var(--header-text); padding: 1rem; font-size: 2rem; text-align: center; font-weight: 700;">
-  🔥 Trendii Now
-  <button id="theme-toggle" class="btn btn-sm btn-outline-light ms-3">Toggle Theme</button>
-</header>
-  <div class="container py-5">
+  <header>
+    🔥 Trendii Now
+    <button id="theme-toggle" class="btn btn-sm btn-outline-light ms-3">Toggle Theme</button>
+  </header>
+
+  <main class="container py-5 flex-grow-1">
     <div class="card shadow-lg">
       <div class="card-body">
         <h1 class="card-title">{{ trend.title }}</h1>
         <p class="text-muted">
-          <strong>Source:</strong> {{ trend.source }} <br>
+          <strong>Source:</strong> {{ trend.source }} <br />
           <strong>Published:</strong> {{ time_ago(trend.timestamp) }}
         </p>
 
         {% if trend.image %}
-        <img src="{{ trend.image }}" alt="Trend Image" class="img-fluid rounded mb-4" style="max-height: 300px;">
+        <img src="{{ trend.image }}" alt="Trend Image" class="img-fluid rounded mb-4" style="max-height: 300px;" />
         {% endif %}
 
         <h4>Summary</h4>
         <div class="summary-block">
-  {{ summary.text | safe }}
-  {{ summary.hashtags | safe }}
-</div>
+          {{ summary.text | safe }}
+          {{ summary.hashtags | safe }}
+        </div>
 
-        <a href="{{ trend.link }}" class="btn btn-primary mb-3" target="_blank">
+        <a href="{{ trend.link }}" class="btn btn-primary mb-3" target="_blank" rel="noopener noreferrer">
           🔗 Read More
         </a>
 
         <div class="d-flex align-items-center gap-2 mb-3">
-  <button class="vote-btn btn btn-outline-primary btn-sm" data-type="thumbs_up">👍 <span class="vote-count" data-type="thumbs_up">{{ vote_counts.get('thumbs_up', 0) }}</span></button>
-  <button class="vote-btn btn btn-outline-danger btn-sm" data-type="fire">🔥 <span class="vote-count" data-type="fire">{{ vote_counts.get('fire', 0) }}</span></button>
-  <button class="vote-btn btn btn-outline-info btn-sm" data-type="mind_blown">😲 <span class="vote-count" data-type="mind_blown">{{ vote_counts.get('mind_blown', 0) }}</span></button>
-</div>
+          <button class="vote-btn btn btn-outline-primary btn-sm" data-type="thumbs_up">👍
+            <span class="vote-count" data-type="thumbs_up">{{ vote_counts.get('thumbs_up', 0) }}</span>
+          </button>
+          <button class="vote-btn btn btn-outline-danger btn-sm" data-type="fire">🔥
+            <span class="vote-count" data-type="fire">{{ vote_counts.get('fire', 0) }}</span>
+          </button>
+          <button class="vote-btn btn btn-outline-info btn-sm" data-type="mind_blown">😲
+            <span class="vote-count" data-type="mind_blown">{{ vote_counts.get('mind_blown', 0) }}</span>
+          </button>
+        </div>
 
         <div class="mt-4">
           <a href="/" class="btn btn-secondary mt-4">
-  <i class="bi bi-arrow-left-circle me-2"></i> Back to Homepage
-</a>
-
+            <i class="bi bi-arrow-left-circle me-2"></i> Back to Homepage
+          </a>
         </div>
       </div>
     </div>
-  </div>
+  </main>
+
+  <footer>
+    &copy; {{ current_year }} Trendii Now. &nbsp;
+    <a href="/">Home</a>
+  </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-  document.querySelectorAll('.vote-btn').forEach(button => {
-    button.addEventListener('click', () => {
-      const trendId = '{{ trend.id }}';
-      const voteType = button.getAttribute('data-type');
+    document.querySelectorAll('.vote-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const trendId = '{{ trend.id }}';
+        const voteType = button.getAttribute('data-type');
 
-      fetch('/api/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trend_id: trendId, vote_type: voteType })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (!data.error) {
-          document.querySelectorAll('.vote-count').forEach(span => {
-            const type = span.getAttribute('data-type');
-            span.textContent = data[type] || 0;
+        fetch('/api/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trend_id: trendId, vote_type: voteType }),
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (!data.error) {
+              document.querySelectorAll('.vote-count').forEach(span => {
+                const type = span.getAttribute('data-type');
+                span.textContent = data[type] || 0;
+              });
+            } else {
+              alert('Error: ' + data.error);
+            }
           });
-        } else {
-          alert('Error: ' + data.error);
-        }
       });
     });
-  });
-</script>
-<script>
-  // ... (keep existing vote script) ...
 
     const themes = ['light', 'dark', 'fun', 'solarized', 'neon'];
     let currentThemeIndex = 0;
@@ -199,6 +251,6 @@
     });
 
     loadTheme();
-</script>
+  </script>
 </body>
 </html>
