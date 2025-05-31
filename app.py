@@ -7,6 +7,7 @@ import random
 import threading
 import time
 import logging
+from flask_socketio import SocketIO, join_room, leave_room, send
 from datetime import datetime, timezone, date
 import re
 from collections import Counter
@@ -14,16 +15,15 @@ from bs4 import BeautifulSoup
 import requests
 import uuid
 from urllib.parse import urljoin
+from datetime import datetime, timezone, date, timedelta
 from flask_cors import CORS
-
-
 
 # Configure logging for Render
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(name)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["https://trendiinow.com", "https://www.trendiinow.com", "https://trendy-wqzi.onrender.com"]}})
+socketio = SocketIO(app, cors_allowed_origins=["https://trendiinow.com", "https://www.trendiinow.com", "https://trendy-wqzi.onrender.com"])
 
 # Database configuration for Render
 db_path = '/opt/render/data/trendy.db' if os.getenv('RENDER') else os.path.join(os.path.abspath(os.path.dirname(__file__)), 'trendy.db')
@@ -156,8 +156,11 @@ def generate_stable_id(trend):
     key = (trend.get("title", "") + trend.get("link", "")).strip()
     return hashlib.md5(key.encode("utf-8")).hexdigest()
 
-def time_ago(timestamp_str):
-    past = datetime.fromisoformat(timestamp_str).replace(tzinfo=timezone.utc)
+def time_ago(timestamp):
+    if isinstance(timestamp, str):
+        past = datetime.fromisoformat(timestamp).replace(tzinfo=timezone.utc)
+    else:
+        past = timestamp.replace(tzinfo=timezone.utc)
     now = datetime.utcnow().replace(tzinfo=timezone.utc)
     diff = now - past
     seconds = diff.total_seconds()
@@ -180,6 +183,13 @@ def get_trend_of_the_day(trends):
     random.seed(today)
     return random.choice(trends)
 
+# Cleanup old trends
+def cleanup_old_trends():
+    threshold = datetime.utcnow() - timedelta(days=7)
+    deleted = Trend.query.filter(Trend.timestamp < threshold).delete()
+    db.session.commit()
+    logger.debug(f"Cleaned up {deleted} old trends")
+
 def get_hacker_news():
     url = 'https://news.ycombinator.com/'
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/112.0.0.0'}
@@ -189,6 +199,7 @@ def get_hacker_news():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('.athing')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title_tag = item.select_one('.titleline')
             if not title_tag:
@@ -207,7 +218,7 @@ def get_hacker_news():
                 'source_class': 'HackerTrending',
                 'image': '/static/images/default_trendy.png',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -226,6 +237,7 @@ def get_github_trending():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('article.Box-row')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             repo = item.select_one('h2').text.strip().replace('\n', '').replace(' ', '')
             link = 'https://github.com' + item.select_one('h2 a')['href']
@@ -240,7 +252,7 @@ def get_github_trending():
                 'source_class': 'GithubTrending',
                 'image': '/static/images/default_trendy.png',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -258,6 +270,7 @@ def get_reddit_top():
         response.raise_for_status()
         json_data = response.json()
         results = []
+        now = datetime.utcnow()
         for item in json_data.get('data', {}).get('children', [])[:25]:
             data = item['data']
             reddit_url = 'https://reddit.com' + data.get('permalink', '')
@@ -292,7 +305,7 @@ def get_reddit_top():
                 'source_class': 'RedditTrending',
                 'image': image_url if image_url else '/static/images/default_trendy.png',
                 'video': video_url,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -311,6 +324,7 @@ def get_techcrunch():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('a.post-block__title__link')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title = item.get_text(strip=True)
             link = item['href']
@@ -327,7 +341,7 @@ def get_techcrunch():
                 'source_class': 'TechcrunchTrending',
                 'image': image,
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -346,6 +360,7 @@ def get_stackoverflow_trending():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('.s-post-summary')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title_tag = item.select_one('.s-link')
             if not title_tag:
@@ -362,7 +377,7 @@ def get_stackoverflow_trending():
                 'source_class': 'StackoverflowTrending',
                 'image': '/static/images/default_trendy.png',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -385,6 +400,7 @@ def get_devto_latest():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('div.crayons-story')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title_tag = item.select_one('h2.crayons-story__title a')
             if not title_tag:
@@ -401,7 +417,7 @@ def get_devto_latest():
                 'source_class': 'DevtoTrending',
                 'image': '/static/images/default_trendy.png',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -420,6 +436,7 @@ def get_medium_technology():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('article')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title_tag = item.select_one('h2')
             if not title_tag:
@@ -437,7 +454,7 @@ def get_medium_technology():
                 'source_class': 'MediumtechTrending',
                 'image': '/static/images/default_trendy.png',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -456,6 +473,7 @@ def get_lobsters():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('.story .link a')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title = item.text.strip()
             link = item['href']
@@ -470,7 +488,7 @@ def get_lobsters():
                 'source_class': 'LobstersTrending',
                 'image': '/static/images/default_trendy.png',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -489,6 +507,7 @@ def get_slashdot():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('.story')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title_tag = item.select_one('.story-title a')
             if not title_tag:
@@ -507,7 +526,7 @@ def get_slashdot():
                 'source_class': 'SlashdotTrending',
                 'image': '/static/images/default_trendy.png',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -526,6 +545,7 @@ def get_digg_popular():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('article.story-item')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title_tag = item.select_one('h2')
             if not title_tag:
@@ -545,7 +565,7 @@ def get_digg_popular():
                 'source_class': 'DiggTrending',
                 'image': image,
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -564,6 +584,7 @@ def get_bbc_trending():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('div.gs-c-promo')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title_tag = item.select_one('h3')
             if not title_tag:
@@ -583,7 +604,7 @@ def get_bbc_trending():
                 'source_class': 'BBCTrending',
                 'image': image,
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -610,6 +631,7 @@ def get_youtube_trending(YOUTUBE_API_KEY):
         response.raise_for_status()
         data = response.json()
         results = []
+        now = datetime.utcnow()
         for item in data.get('items', [])[:25]:
             snippet = item['snippet']
             video_id = item['id']
@@ -625,7 +647,7 @@ def get_youtube_trending(YOUTUBE_API_KEY):
                 'source_class': 'YouTubeTrending',
                 'image': image,
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -644,6 +666,7 @@ def get_ars_technica():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('article.tease')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title_tag = item.select_one('h2 a')
             if not title_tag:
@@ -662,7 +685,7 @@ def get_ars_technica():
                 'source_class': 'ArsTechnicaTrending',
                 'image': image,
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -681,6 +704,7 @@ def get_wired():
         soup = BeautifulSoup(response.content, 'xml')
         items = soup.find_all('item')
         results = []
+        now = datetime.utcnow()
         for item in items[:25]:
             title = item.title.text.strip()
             link = item.link.text.strip()
@@ -693,7 +717,7 @@ def get_wired():
                 'source_class': 'WiredTrending',
                 'image': '/static/images/default_trendy.png',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -712,6 +736,7 @@ def get_goodreads_trending():
         soup = BeautifulSoup(response.text, 'html.parser')
         book_sections = soup.select('div.tableList tr')
         results = []
+        now = datetime.utcnow()
         for row in book_sections[:25]:
             link_tag = row.select_one('a.bookTitle')
             image_tag = row.select_one('img.bookCover')
@@ -728,7 +753,7 @@ def get_goodreads_trending():
                 'source': 'From Goodreads',
                 'source_class': 'GoodreadsTrending',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -747,6 +772,7 @@ def get_steam_charts():
         soup = BeautifulSoup(response.text, 'html.parser')
         rows = soup.select('table.common-table tbody tr')
         results = []
+        now = datetime.utcnow()
         for row in rows[:25]:
             name_tag = row.select_one('td.game-name > a')
             if not name_tag:
@@ -763,7 +789,7 @@ def get_steam_charts():
                 'source': 'From Steam Charts',
                 'source_class': 'SteamChartsTrending',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now 
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -784,7 +810,7 @@ def get_spotify_charts(client_id, client_secret):
         playlist_id = '37i9dQZEVXbMDoHDwVN2tF'  # Spotify Global Top 50
         playlist = sp.playlist(playlist_id)
         results = []
-        
+        now = datetime.utcnow()
         for item in playlist['tracks']['items'][:25]:
             track = item['track']
             title = track['name']
@@ -800,7 +826,7 @@ def get_spotify_charts(client_id, client_secret):
                 'source_class': 'SpotifyTrending',
                 'image': image,
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -819,6 +845,7 @@ def get_billboard_trending():
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.select('li.o-chart-results-list__item h3')
         results = []
+        now = datetime.utcnow()
         for i, h3 in enumerate(items[:25]):
             title = h3.get_text(strip=True)
             artist_tag = h3.find_next('span')
@@ -831,7 +858,7 @@ def get_billboard_trending():
                 'source_class': 'BillboardTrending',
                 'image': '/static/images/default_trendy.png',
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -854,6 +881,7 @@ def get_imdb_trending():
         soup = BeautifulSoup(response.text, 'html.parser')
         rows = soup.select('ul.ipc-metadata-list li.ipc-metadata-list-summary-item')
         results = []
+        now = datetime.utcnow()
         for i, row in enumerate(rows[:25]):
             title_column = row.select_one('a.ipc-title-link-wrapper')
             if not title_column:
@@ -873,7 +901,7 @@ def get_imdb_trending():
                 'source_class': 'IMDbTrending',
                 'image': image,
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -896,6 +924,7 @@ def get_cnn_trending():
         soup = BeautifulSoup(response.text, 'html.parser')
         articles = soup.select('a.container__link--type-article')
         results = []
+        now = datetime.utcnow()
         for i, article in enumerate(articles[:25]):
             title = article.get_text(strip=True)
             if not title:
@@ -914,7 +943,7 @@ def get_cnn_trending():
                 'source_class': 'CNNTrending',
                 'image': image,
                 'video': None,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': now 
             }
             trend['id'] = generate_stable_id(trend)
             results.append(trend)
@@ -941,7 +970,7 @@ def fetch_reuters_trending():
         # Updated selector based on Reuters homepage structure (may need adjustment)
         articles = soup.select("a[data-testid='Heading']")  # Adjust selector after inspecting page
         results = []
-        timestamp = datetime.utcnow().isoformat()
+        now = datetime.utcnow()
 
         for i, article in enumerate(articles[:10]):
             title = article.get_text(strip=True)
@@ -958,7 +987,7 @@ def fetch_reuters_trending():
                 "source_class": "ReutersTrending",
                 "image": "/static/images/default_trendy.png",
                 "video": None,
-                "timestamp": timestamp
+                "timestamp": now
             }
             trend['id'] = generate_stable_id(trend)  # Assign stable ID inside loop
             results.append(trend)  # Append inside loop
@@ -977,21 +1006,13 @@ def fetch_all_trends():
     funcs = [
         get_hacker_news,
         get_github_trending,
-        # get_reddit_top,  # Disabled: 403 Blocked error; requires OAuth
-        # get_techcrunch,  # Disabled: Returns 0 trends; check parsing logic
         get_stackoverflow_trending,
         get_devto_latest,
         get_medium_technology,
         get_lobsters,
         get_slashdot,
-        # get_digg_popular,  # Disabled: Returns 0 trends; check parsing logic
-        # get_bbc_trending,  # Disabled: Returns 0 trends; check parsing logic
-        # lambda: get_youtube_trending(os.getenv('YOUTUBE_API_KEY')),  # Disabled: Missing YOUTUBE_API_KEY
-        # get_ars_technica,  # Disabled: Returns 0 trends; check parsing logic
-        get_wired,  # Fixed: Requires lxml
-        # get_goodreads_trending,  # Disabled: Returns 0 trends; check parsing logic
+        get_wired,
         get_steam_charts,
-        # lambda: get_spotify_charts(os.getenv('SPOTIFY_CLIENT_ID'), os.getenv('SPOTIFY_CLIENT_SECRET')),  # Disabled: Excluded per user request
         get_billboard_trending,
         get_imdb_trending,
         get_cnn_trending
@@ -1000,6 +1021,9 @@ def fetch_all_trends():
     if not funcs:
         logger.error("No source functions defined in fetch_all_trends")
         return []
+
+    # Fetch existing trends from the database
+    existing_trends = {trend.id: trend for trend in Trend.query.all()}
 
     for func in funcs:
         try:
@@ -1016,8 +1040,54 @@ def fetch_all_trends():
         except Exception as e:
             logger.error(f"Error fetching from {func.__name__}: {e}", exc_info=True)
 
-    all_trends.sort(key=lambda x: x['timestamp'] if isinstance(x['timestamp'], datetime) else datetime.fromisoformat(x['timestamp']), reverse=True)
-    global_trends = all_trends[:2000]  # Limit to 1000 trends to reduce memory usage
+    # Process fetched trends
+    new_global_trends = []
+    now = datetime.utcnow()
+    for trend in all_trends:
+        trend_id = generate_stable_id(trend)
+        trend['id'] = trend_id
+        existing_trend = existing_trends.get(trend_id)
+        
+        if existing_trend:
+            # Update existing trend but keep original timestamp
+            existing_trend.title = trend.get('title', existing_trend.title)
+            existing_trend.image = trend.get('image', existing_trend.image)
+            existing_trend.description = trend.get('description', existing_trend.description)
+            existing_trend.link = trend.get('link', existing_trend.link)
+            existing_trend.source = trend.get('source', existing_trend.source)
+            trend['timestamp'] = existing_trend.timestamp.isoformat()
+            new_global_trends.append(trend)
+        else:
+            # New trend, add to database with current timestamp
+            new_trend = Trend(
+                id=trend_id,
+                title=trend.get('title', 'Untitled'),
+                image=trend.get('image', '/static/images/default_trendy.png'),
+                description=trend.get('description', ''),
+                link=trend.get('link', ''),
+                source=trend.get('source', 'Unknown'),
+                timestamp=now
+            )
+            db.session.add(new_trend)
+            trend['timestamp'] = now.isoformat()
+            new_global_trends.append(trend)
+
+    try:
+        db.session.commit()
+        logger.debug("Database updated with new and existing trends")
+    except Exception as e:
+        logger.error(f"Error committing trends to database: {e}", exc_info=True)
+        db.session.rollback()
+
+    # Clean up old trends
+    try:
+        cleanup_old_trends()
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}", exc_info=True)
+
+    # Update global_trends, sorted by timestamp
+    new_global_trends.sort(key=lambda x: datetime.fromisoformat(x['timestamp']), reverse=True)
+    global_trends = new_global_trends[:2000]
     logger.debug(f"Total trends fetched: {len(global_trends)}")
     return global_trends
 
@@ -1030,7 +1100,7 @@ def background_fetch():
             logger.debug("Background fetch completed")
         except Exception as e:
             logger.error(f"Background fetch error: {e}", exc_info=True)
-        time.sleep(3600)
+        time.sleep(600)  # Fetch every 10 minutes
 
 if os.getenv('RENDER'):
     logger.debug("Starting background fetch thread on Render")
@@ -1042,11 +1112,26 @@ else:
 @app.route('/')
 def home():
     logger.debug("Rendering home page")
+    if not global_trends:
+        logger.warning("No trends in global_trends, fetching from database or sources")
+        trends = Trend.query.order_by(Trend.timestamp.desc()).limit(2000).all()
+        if trends:
+            global_trends.extend([{
+                'id': t.id,
+                'title': t.title,
+                'image': t.image,
+                'description': t.description,
+                'link': t.link,
+                'source': t.source,
+                'source_class': t.source,  # Map to appropriate class if needed
+                'timestamp': t.timestamp.isoformat(),
+                'video': None
+            } for t in trends])
+        else:
+            fetch_all_trends()
+    else:
+        fetch_all_trends()  # Fetch new trends on each refresh
     trends = global_trends
-    if not trends:
-        logger.warning("No trends available for home page")
-        fetch_all_trends()
-        trends = global_trends
     random.shuffle(trends)
     trend_of_the_day = get_trend_of_the_day(trends)
     unique_sources = sorted(set(trend['source'] for trend in trends))
@@ -1068,6 +1153,10 @@ def home():
         unique_sources=unique_sources,
         vote_counts=vote_counts_dict
     )
+
+@app.route('/chat')
+def chat():
+    return render_template('chat.html')
 
 @app.route('/api/trends')
 def api_trends():
@@ -1168,6 +1257,24 @@ def test_vote():
 def debug_request():
     logger.debug(f"Request host: {request.host}, URL: {request.url}")
     return jsonify({"host": request.host, "url": request.url})
+
+@socketio.on('join')
+def handle_join(data):
+    room = data['room']
+    join_room(room)
+    send(f"{data['username']} has entered the chat.", to=room)
+
+@socketio.on('leave')
+def handle_leave(data):
+    room = data['room']
+    leave_room(room)
+    send(f"{data['username']} has left the chat.", to=room)
+
+@socketio.on('message')
+def handle_message(data):
+    room = data['room']
+    msg = f"{data['username']}: {data['message']}"
+    send(msg, to=room)
 
 if __name__ == '__main__':
     logger.info("Starting application in local mode")
