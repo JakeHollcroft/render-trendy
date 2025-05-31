@@ -18,14 +18,12 @@ from urllib.parse import urljoin
 from datetime import datetime, timezone, date, timedelta
 from flask_cors import CORS
 
-# Configure logging for Render
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(name)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins=["https://trendiinow.com", "https://www.trendiinow.com", "https://trendy-wqzi.onrender.com"])
 
-# Database configuration for Render
 db_path = '/opt/render/data/trendy.db' if os.getenv('RENDER') else os.path.join(os.path.abspath(os.path.dirname(__file__)), 'trendy.db')
 if os.getenv('RENDER'):
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -33,7 +31,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# Database models
 class Trend(db.Model):
     id = db.Column(db.String, primary_key=True)
     title = db.Column(db.String, nullable=False)
@@ -55,18 +52,17 @@ class Vote(db.Model):
 
 with app.app_context():
     db.create_all()
-    logger.debug(f"Vote table count after initialization: {Vote.query.count()}")
+    logger.debug(f"Trend table count: {Trend.query.count()}")
+    logger.debug(f"Vote table count: {Vote.query.count()}")
 
-# Initialize global trends list
 global_trends = []
+last_fetch_time = None
 
-# Define STOP_WORDS for generate_summary
 STOP_WORDS = {
     'the', 'and', 'for', 'with', 'from', 'this', 'that', 'are', 'was', 'were', 'has', 'have', 'had',
     'but', 'not', 'all', 'any', 'some', 'what', 'when', 'where', 'which', 'who', 'why', 'how'
 }
 
-# Mood tag keyword dictionary
 MOOD_KEYWORDS = {
     'Controversial': ['controversy', 'debate', 'scandal', 'dispute', 'conflict', 'outrage'],
     'Wholesome': ['heartwarming', 'kind', 'positive', 'uplifting', 'inspiring', 'charity'],
@@ -76,16 +72,14 @@ MOOD_KEYWORDS = {
     'Exciting': ['thrilling', 'exciting', 'epic', 'amazing', 'breakthrough']
 }
 
-# Initialize pipeline for t5-small
 try:
     logger.debug("Loading t5-small pipeline")
     summarizer = pipeline("summarization", model="t5-small", device="cpu")
-    logger.debug("t5-small pipeline loaded successfully")
+    logger.debug("t5-small pipeline loaded")
 except Exception as e:
-    logger.error(f"Failed to load t5-small pipeline: {e}", exc_info=True)
+    logger.error(f"Failed to load t5-small: {e}", exc_info=True)
     summarizer = None
 
-# Generate mood tags
 def generate_mood_tags(trend):
     try:
         title = str(trend.get("title") or "").lower()
@@ -100,26 +94,23 @@ def generate_mood_tags(trend):
         logger.error(f"Error generating mood tags: {e}", exc_info=True)
         return ['Trending']
 
-# Generate summary function
 def generate_summary(trend):
     try:
         title = str(trend.get("title") or "Untitled")
         description = str(trend.get("description") or "")
-        source = str(trend.get("source") or "an unknown source")
+        source = str(trend.get("source") or "Unknown")
         text = f"{title}. {description}".strip()
         text = re.sub(r'#\w+', '', text)
         text = re.sub(r'\s+', ' ', text).strip(' .|')
         input_length = len(text.split())
         max_length = min(100, max(20, input_length * 2))
         min_length = min(20, max(5, input_length // 2))
-        logger.debug(f"Input text: '{text}', input_length={input_length}, max_length={max_length}, min_length={min_length}")
+        logger.debug(f"Summary input: length={input_length}, max={max_length}, min={min_length}")
         if input_length < 5:
-            logger.debug("Input too short, using custom summary")
             summary_text = f"'{title}' is trending on {source}."
         else:
             result = summarizer(text, max_length=max_length, min_length=min_length, do_sample=False, truncation=True)
             summary_text = result[0]['summary_text'].strip()
-        logger.debug(f"Summary output: '{summary_text}'")
         all_text = f"{title} {description} {summary_text}".lower()
         words = re.findall(r'\w+', all_text)
         keywords = [word for word in words if len(word) > 3 and word not in STOP_WORDS]
@@ -136,11 +127,9 @@ def generate_summary(trend):
         }
     except Exception as e:
         logger.error(f"Error generating summary: {e}", exc_info=True)
-        source = str(trend.get("source") or "an unknown source")
+        source = str(trend.get("source") or "Unknown")
         title = str(trend.get("title") or "Untitled")
-        keywords = [kw for kw in title.lower().split() if len(kw) > 3 and kw not in STOP_WORDS][:3]
-        if not keywords:
-            keywords = ['trending', source.lower()]
+        keywords = [kw for kw in title.lower().split() if len(kw) > 3 and kw not in STOP_WORDS][:3] or ['trending', source.lower()]
         hashtags = " ".join(f"#{kw.capitalize()}" for kw in keywords)
         meta_keywords = ", ".join(keywords)
         fallback_summary = f"'{title}' is trending on {source}."
@@ -153,29 +142,38 @@ def generate_summary(trend):
         }
 
 def generate_stable_id(trend):
-    key = (trend.get("title", "") + trend.get("link", "")).strip()
-    return hashlib.md5(key.encode("utf-8")).hexdigest()
+    title = str(trend.get("title", "")).strip().lower()
+    link = str(trend.get("link", "")).strip()
+    parsed = urlparse(link)
+    clean_link = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    key = (title + clean_link).encode("utf-8")
+    trend_id = hashlib.md5(key).hexdigest()
+    logger.debug(f"ID for title: '{title}', link: '{clean_link}' -> {trend_id}")
+    return trend_id
 
 def time_ago(timestamp):
-    if isinstance(timestamp, str):
-        past = datetime.fromisoformat(timestamp).replace(tzinfo=timezone.utc)
-    else:
-        past = timestamp.replace(tzinfo=timezone.utc)
-    now = datetime.utcnow().replace(tzinfo=timezone.utc)
-    diff = now - past
-    seconds = diff.total_seconds()
-    if seconds < 60:
-        return f"{int(seconds)} seconds ago"
-    elif seconds < 3600:
-        return f"{int(seconds // 60)} minutes ago"
-    elif seconds < 86400:
-        return f"{int(seconds // 3600)} hours ago"
-    else:
-        return f"{int(seconds // 86400)} days ago"
+    try:
+        if isinstance(timestamp, str):
+            past = datetime.fromisoformat(timestamp).replace(tzinfo=timezone.utc)
+        else:
+            past = timestamp.replace(tzinfo=timezone.utc)
+        now = datetime.utcnow().replace(tzinfo=timezone.utc)
+        diff = now - past
+        seconds = diff.total_seconds()
+        if seconds < 60:
+            return f"{int(seconds)} seconds ago"
+        elif seconds < 3600:
+            return f"{int(seconds // 60)} minutes ago"
+        elif seconds < 86400:
+            return f"{int(seconds // 3600)} hours ago"
+        else:
+            return f"{int(seconds // 86400)} days ago"
+    except Exception as e:
+        logger.error(f"Error in time_ago: {e}", exc_info=True)
+        return "Unknown time"
 
 app.jinja_env.globals.update(time_ago=time_ago)
 
-# Select Random Trend of the Day
 def get_trend_of_the_day(trends):
     if not trends:
         return None
@@ -183,12 +181,15 @@ def get_trend_of_the_day(trends):
     random.seed(today)
     return random.choice(trends)
 
-# Cleanup old trends
 def cleanup_old_trends():
-    threshold = datetime.utcnow() - timedelta(days=7)
-    deleted = Trend.query.filter(Trend.timestamp < threshold).delete()
-    db.session.commit()
-    logger.debug(f"Cleaned up {deleted} old trends")
+    try:
+        threshold = datetime.utcnow() - timedelta(days=7)
+        deleted = Trend.query.filter(Trend.timestamp < threshold).delete()
+        db.session.commit()
+        logger.debug(f"Cleaned {deleted} old trends")
+    except Exception as e:
+        logger.error(f"Error cleaning trends: {e}", exc_info=True)
+        db.session.rollback()
 
 def get_hacker_news():
     url = 'https://news.ycombinator.com/'
@@ -998,17 +999,16 @@ def fetch_reuters_trending():
         print(f"Error fetching Reuters trending: {e}")
         return []
 # ---------------------------- AGGREGATE AND CACHE ---------------------------- #
-# Trend fetching
 def fetch_all_trends():
-    global global_trends
+    global global_trends, last_fetch_time
     logger.debug("Starting fetch_all_trends")
     all_trends = []
     funcs = [
         get_hacker_news,
         get_github_trending,
+        get_medium_technology,
         get_stackoverflow_trending,
         get_devto_latest,
-        get_medium_technology,
         get_lobsters,
         get_slashdot,
         get_wired,
@@ -1017,39 +1017,32 @@ def fetch_all_trends():
         get_imdb_trending,
         get_cnn_trending
     ]
-    logger.debug(f"Number of source functions: {len(funcs)}")
-    if not funcs:
-        logger.error("No source functions defined in fetch_all_trends")
-        return []
-
-    # Fetch existing trends from the database
-    existing_trends = {trend.id: trend for trend in Trend.query.all()}
+    try:
+        existing_trends = {trend.id: trend for trend in Trend.query.all()}
+        logger.debug(f"Loaded {len(existing_trends)} existing trends")
+    except Exception as e:
+        logger.error(f"Error querying trends: {e}", exc_info=True)
+        existing_trends = {}
 
     for func in funcs:
         try:
-            logger.debug(f"Attempting to fetch from source: {func.__name__}")
-            trends_from_func = func()
-            if trends_from_func is None:
-                logger.warning(f"Source {func.__name__} returned None")
+            trends = func()
+            if trends is None or not isinstance(trends, list):
+                logger.warning(f"Source {func.__name__} returned invalid: {type(trends)}")
                 continue
-            if not isinstance(trends_from_func, list):
-                logger.error(f"Source {func.__name__} returned non-list: {type(trends_from_func)}")
-                continue
-            logger.debug(f"Got {len(trends_from_func)} trends from {func.__name__}")
-            all_trends.extend(trends_from_func)
+            all_trends.extend(trends)
+            logger.debug(f"Fetched {len(trends)} from {func.__name__}")
         except Exception as e:
-            logger.error(f"Error fetching from {func.__name__}: {e}", exc_info=True)
+            logger.error(f"Error in {func.__name__}: {e}", exc_info=True)
 
-    # Process fetched trends
     new_global_trends = []
     now = datetime.utcnow()
     for trend in all_trends:
         trend_id = generate_stable_id(trend)
         trend['id'] = trend_id
         existing_trend = existing_trends.get(trend_id)
-        
         if existing_trend:
-            # Update existing trend but keep original timestamp
+            logger.debug(f"Existing trend {trend_id}: {trend['title']}, timestamp: {existing_trend.timestamp}")
             existing_trend.title = trend.get('title', existing_trend.title)
             existing_trend.image = trend.get('image', existing_trend.image)
             existing_trend.description = trend.get('description', existing_trend.description)
@@ -1058,7 +1051,7 @@ def fetch_all_trends():
             trend['timestamp'] = existing_trend.timestamp.isoformat()
             new_global_trends.append(trend)
         else:
-            # New trend, add to database with current timestamp
+            logger.debug(f"New trend {trend_id}: {trend['title']}")
             new_trend = Trend(
                 id=trend_id,
                 title=trend.get('title', 'Untitled'),
@@ -1074,64 +1067,71 @@ def fetch_all_trends():
 
     try:
         db.session.commit()
-        logger.debug("Database updated with new and existing trends")
+        logger.debug("Database commit successful")
     except Exception as e:
-        logger.error(f"Error committing trends to database: {e}", exc_info=True)
+        logger.error(f"Error committing database: {e}", exc_info=True)
         db.session.rollback()
 
-    # Clean up old trends
     try:
         cleanup_old_trends()
     except Exception as e:
-        logger.error(f"Error during cleanup: {e}", exc_info=True)
+        logger.error(f"Error cleaning trends: {e}", exc_info=True)
 
-    # Update global_trends, sorted by timestamp
     new_global_trends.sort(key=lambda x: datetime.fromisoformat(x['timestamp']), reverse=True)
     global_trends = new_global_trends[:2000]
-    logger.debug(f"Total trends fetched: {len(global_trends)}")
+    last_fetch_time = now
+    logger.debug(f"Total trends: {len(global_trends)}")
     return global_trends
 
-# Background fetching for Render
 def background_fetch():
-    logger.debug("Background fetch thread started")
+    logger.debug("Background fetch started")
     while True:
         try:
             fetch_all_trends()
             logger.debug("Background fetch completed")
         except Exception as e:
             logger.error(f"Background fetch error: {e}", exc_info=True)
-        time.sleep(600)  # Fetch every 10 minutes
+        time.sleep(600)
 
 if os.getenv('RENDER'):
-    logger.debug("Starting background fetch thread on Render")
     threading.Thread(target=background_fetch, daemon=True).start()
-else:
-    logger.debug("Skipping background thread for local development")
+    logger.debug("Background fetch thread started")
 
-# Routes
 @app.route('/')
 def home():
-    logger.debug("Rendering home page")
-    if not global_trends:
-        logger.warning("No trends in global_trends, fetching from database or sources")
-        trends = Trend.query.order_by(Trend.timestamp.desc()).limit(2000).all()
-        if trends:
-            global_trends.extend([{
-                'id': t.id,
-                'title': t.title,
-                'image': t.image,
-                'description': t.description,
-                'link': t.link,
-                'source': t.source,
-                'source_class': t.source,  # Map to appropriate class if needed
-                'timestamp': t.timestamp.isoformat(),
-                'video': None
-            } for t in trends])
-        else:
+    global global_trends, last_fetch_time
+    logger.debug("Rendering home")
+    now = datetime.utcnow()
+    if not global_trends or (last_fetch_time and (now - last_fetch_time).total_seconds() > 300):
+        logger.debug("Fetching trends: empty or stale")
+        try:
+            trends = Trend.query.order_by(Trend.timestamp.desc()).limit(2000).all()
+            logger.debug(f"Loaded {len(trends)} trends from database")
+            if trends:
+                global_trends = [{
+                    'id': t.id,
+                    'title': t.title,
+                    'image': t.image,
+                    'description': t.description,
+                    'link': t.link,
+                    'source': t.source,
+                    'source_class': t.source,
+                    'timestamp': t.timestamp.isoformat(),
+                    'video': None
+                } for t in trends]
+            else:
+                fetch_all_trends()
+        except Exception as e:
+            logger.error(f"Error loading trends: {e}", exc_info=True)
             fetch_all_trends()
     else:
-        fetch_all_trends()  # Fetch new trends on each refresh
+        logger.debug("Using cached trends")
+
     trends = global_trends
+    if not trends:
+        logger.warning("No trends available")
+        trends = []
+
     random.shuffle(trends)
     trend_of_the_day = get_trend_of_the_day(trends)
     unique_sources = sorted(set(trend['source'] for trend in trends))
@@ -1145,7 +1145,7 @@ def home():
         if v.trend_id not in vote_counts_dict:
             vote_counts_dict[v.trend_id] = {}
         vote_counts_dict[v.trend_id][v.vote_type] = v.count
-    logger.debug(f"Trends count: {len(trends)}, Sources: {unique_sources}")
+    logger.debug(f"Rendering {len(trends)} trends, sources: {unique_sources}")
     return render_template(
         'index.html',
         trends=trends,
@@ -1165,7 +1165,7 @@ def api_trends():
 
 @app.route('/trend/<trend_id>')
 def trend_detail(trend_id):
-    logger.debug(f"Rendering trend detail for ID: {trend_id}")
+    logger.debug(f"Rendering trend {trend_id}")
     trend = next((t for t in global_trends if t['id'] == trend_id), None)
     if not trend:
         logger.warning(f"Trend not found: {trend_id}")
@@ -1185,36 +1185,41 @@ def trend_detail(trend_id):
 
 @app.route('/api/vote', methods=['POST'])
 def vote():
-    logger.debug("Processing vote request")
+    logger.debug("Processing vote")
     data = request.json
     trend_id = data.get('trend_id')
     vote_type = data.get('vote_type')
     ip = request.remote_addr
     if not trend_id or not vote_type:
-        logger.error(f"Missing trend_id or vote_type: {data}")
+        logger.error(f"Missing vote data: {data}")
         return jsonify({'error': 'Missing trend_id or vote_type'}), 400
     existing_vote = Vote.query.filter_by(trend_id=trend_id, ip_address=ip).first()
     if existing_vote:
-        logger.warning(f"Duplicate vote from IP {ip} for trend {trend_id}")
-        return jsonify({'error': 'You have already voted for this trend'}), 403
+        logger.warning(f"Duplicate vote from {ip} for {trend_id}")
+        return jsonify({'error': 'Already voted'}), 403
     vote = Vote(trend_id=trend_id, ip_address=ip, vote_type=vote_type)
     db.session.add(vote)
-    db.session.commit()
+    try:
+        db.session.commit()
+        logger.debug(f"Vote recorded: {trend_id}, {vote_type}")
+    except Exception as e:
+        logger.error(f"Error committing vote: {e}", exc_info=True)
+        db.session.rollback()
+        return jsonify({'error': 'Database error'}), 500
     vote_counts = db.session.query(
         Vote.vote_type,
         db.func.count().label('count')
     ).filter_by(trend_id=trend_id).group_by(Vote.vote_type).all()
-    logger.debug(f"Vote recorded for trend {trend_id}: {vote_type}")
     return jsonify({v.vote_type: v.count for v in vote_counts})
 
 @app.route('/fetch-trends')
 def fetch_trends():
     try:
         fetch_all_trends()
-        logger.debug("Manual trend fetch completed")
+        logger.debug("Manual fetch completed")
         return jsonify({"status": "success", "trend_count": len(global_trends)})
     except Exception as e:
-        logger.error(f"Manual trend fetch failed: {e}", exc_info=True)
+        logger.error(f"Manual fetch failed: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/test-vote')
@@ -1232,7 +1237,7 @@ def test_vote():
             )
             db.session.add(trend)
             db.session.commit()
-            logger.debug("Test trend inserted successfully")
+            logger.debug("Test trend inserted")
         test_ip = "127.0.0.1"
         vote = Vote.query.filter_by(trend_id=test_trend_id, ip_address=test_ip).first()
         if not vote:
@@ -1244,31 +1249,31 @@ def test_vote():
             )
             db.session.add(vote)
             db.session.commit()
-            logger.debug("Test vote inserted successfully")
+            logger.debug("Test vote inserted")
         vote_count = Vote.query.count()
-        logger.debug(f"Total votes in database: {vote_count}")
+        logger.debug(f"Vote count: {vote_count}")
         return jsonify({"status": "success", "vote_count": vote_count})
     except Exception as e:
-        logger.error(f"Vote database test failed: {e}", exc_info=True)
+        logger.error(f"Test vote failed: {e}", exc_info=True)
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/debug-request')
 def debug_request():
-    logger.debug(f"Request host: {request.host}, URL: {request.url}")
+    logger.debug(f"Request: {request.host}, {request.url}")
     return jsonify({"host": request.host, "url": request.url})
 
 @socketio.on('join')
 def handle_join(data):
     room = data['room']
     join_room(room)
-    send(f"{data['username']} has entered the chat.", to=room)
+    send(f"{data['username']} entered chat.", to=room)
 
 @socketio.on('leave')
 def handle_leave(data):
     room = data['room']
     leave_room(room)
-    send(f"{data['username']} has left the chat.", to=room)
+    send(f"{data['username']} left chat.", to=room)
 
 @socketio.on('message')
 def handle_message(data):
@@ -1277,6 +1282,6 @@ def handle_message(data):
     send(msg, to=room)
 
 if __name__ == '__main__':
-    logger.info("Starting application in local mode")
+    logger.info("Starting local app")
     fetch_all_trends()
     app.run(host='127.0.0.1', port=5000, debug=True)
