@@ -143,13 +143,11 @@ def generate_summary(trend):
 
 def generate_stable_id(trend):
     title = str(trend.get("title", "")).strip().lower()
-    # Normalize title: remove special characters, extra spaces
     title = re.sub(r'[^\w\s]', '', title)
     title = re.sub(r'\s+', ' ', title).strip()
     link = str(trend.get("link", "")).strip()
     try:
         parsed = urlparse(link)
-        # Use scheme, netloc, path; ignore query and fragment
         clean_link = f"{parsed.scheme}://{parsed.netloc}{parsed.path}".rstrip('/')
         if not clean_link.startswith(('http://', 'https://')):
             clean_link = f"https://{clean_link.lstrip('/')}"
@@ -1054,7 +1052,8 @@ def background_fetch():
     logger.debug("Background fetch started")
     while True:
         try:
-            fetch_all_trends()
+            with app.app_context():
+                fetch_all_trends()
             logger.debug("Background fetch completed")
         except Exception as e:
             logger.error(f"Background fetch error: {e}", exc_info=True)
@@ -1072,7 +1071,8 @@ def home():
     if not global_trends or (last_fetch_time and (now - last_fetch_time).total_seconds() > 300):
         logger.debug("Fetching trends: empty or stale")
         try:
-            trends = Trend.query.order_by(Trend.timestamp.desc()).limit(2000).all()
+            with app.app_context():
+                trends = Trend.query.order_by(Trend.timestamp.desc()).limit(2000).all()
             logger.debug(f"Loaded {len(trends)} trends from database")
             global_trends = [{
                 'id': t.id,
@@ -1088,7 +1088,8 @@ def home():
             last_fetch_time = now
         except Exception as e:
             logger.error(f"Error loading trends: {e}", exc_info=True)
-            fetch_all_trends()
+            with app.app_context():
+                fetch_all_trends()
     else:
         logger.debug("Using cached trends")
 
@@ -1137,7 +1138,7 @@ def trend_detail(trend_id):
         try:
             return render_template('404.html'), 404
         except Exception as e:
-            logger.error("404.html template not found, returning plain text")
+            logger.error(f"404.html template not found: {e}", exc_info=True)
             response = make_response("Trend not found", 404)
             response.headers['Content-Type'] = 'text/plain'
             return response
@@ -1186,7 +1187,8 @@ def vote():
 @app.route('/fetch-trends')
 def fetch_trends():
     try:
-        fetch_all_trends()
+        with app.app_context():
+            fetch_all_trends()
         logger.debug("Manual fetch completed")
         return jsonify({"status": "success", "trend_count": len(global_trends)})
     except Exception as e:
@@ -1213,7 +1215,7 @@ def test_vote():
         vote = Vote.query.filter_by(trend_id=test_trend_id, ip_address=test_ip).first()
         if not vote:
             vote = Vote(
-                trend_id=test_trend_id,
+                test_trend_id,
                 ip_address=test_ip,
                 vote_type="upvote",
                 timestamp=datetime.now(timezone.utc)
@@ -1254,5 +1256,6 @@ def handle_message(data):
 
 if __name__ == '__main__':
     logger.info("Starting local app")
-    fetch_all_trends()
+    with app.app_context():
+        fetch_all_trends()
     app.run(host='127.0.0.1', port=5000, debug=True)
