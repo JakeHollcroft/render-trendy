@@ -14,7 +14,7 @@ from collections import Counter
 from bs4 import BeautifulSoup
 import requests
 import uuid
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from datetime import datetime, timezone, date, timedelta
 from flask_cors import CORS
 
