@@ -7,7 +7,7 @@ import random
 import threading
 import time
 import logging
-from flask_socketio import SocketIO, join_room, leave_room, send
+from flask_socketio import SocketIO, join_room, leave_room, send, emit
 from datetime import datetime, timezone, date
 import re
 from collections import Counter
@@ -22,7 +22,18 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(nam
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins=["https://trendiinow.com", "https://www.trendiinow.com", "https://trendy-wqzi.onrender.com"])
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key')  # Required for SocketIO
+socketio = SocketIO(
+    app,
+    cors_allowed_origins=[
+        "https://trendiinow.com",
+        "https://www.trendiinow.com",
+        "https://trendy-wqzi.onrender.com",
+        "http://localhost:5000"  # For local testing
+    ],
+    logger=True,
+    engineio_logger=True
+)
 
 db_path = '/opt/render/data/trendy.db' if os.getenv('RENDER') else os.path.join(os.path.abspath(os.path.dirname(__file__)), 'trendy.db')
 if os.getenv('RENDER'):
@@ -1014,7 +1025,6 @@ def fetch_all_trends():
         existing_trend = existing_trends.get(trend_id)
         if existing_trend:
             logger.debug(f"Existing trend {trend_id}: {trend.get('title', 'Untitled')}, timestamp: {existing_trend.timestamp}")
-            # Ensure offset-aware timestamp
             timestamp = existing_trend.timestamp
             if timestamp.tzinfo is None:
                 timestamp = timestamp.replace(tzinfo=timezone.utc)
@@ -1047,7 +1057,6 @@ def fetch_all_trends():
     except Exception as e:
         logger.error(f"Error cleaning trends: {e}", exc_info=True)
 
-    # Sort with offset-aware timestamps
     try:
         new_global_trends.sort(
             key=lambda x: datetime.fromisoformat(x['timestamp']).astimezone(timezone.utc),
@@ -1055,7 +1064,6 @@ def fetch_all_trends():
         )
     except Exception as e:
         logger.error(f"Error sorting trends: {e}", exc_info=True)
-        # Fallback: sort with timestamp strings
         new_global_trends.sort(key=lambda x: x['timestamp'], reverse=True)
 
     global_trends = new_global_trends[:2000]
@@ -1251,26 +1259,57 @@ def debug_request():
     logger.debug(f"Request: {request.host}, {request.url}")
     return jsonify({"host": request.host, "url": request.url})
 
+@socketio.on('connect')
+def handle_connect():
+    logger.debug(f"Client connected: {request.sid}")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    logger.debug(f"Client disconnected: {request.sid}")
+
 @socketio.on('join')
 def handle_join(data):
-    room = data['room']
+    room = data.get('room')
+    username = data.get('username', 'Guest')
+    if not room or not isinstance(room, str):
+        logger.error(f"Invalid room in join: {room}")
+        emit('error', {'message': 'Invalid room'}, to=request.sid)
+        return
     join_room(room)
-    send(f"{data['username']} entered chat.", to=room)
+    logger.debug(f"User {username} (SID: {request.sid}) joined room {room}")
+    emit('message', f"{username} entered chat.", to=room, include_self=True)
 
 @socketio.on('leave')
 def handle_leave(data):
-    room = data['room']
+    room = data.get('room')
+    username = data.get('username', 'Guest')
+    if not room or not isinstance(room, str):
+        logger.error(f"Invalid room in leave: {room}")
+        emit('error', {'message': 'Invalid room'}, to=request.sid)
+        return
     leave_room(room)
-    send(f"{data['username']} left chat.", to=room)
+    logger.debug(f"User {username} (SID: {request.sid}) left room {room}")
+    emit('message', f"{username} left chat.", to=room, include_self=False)
 
 @socketio.on('message')
 def handle_message(data):
-    room = data['room']
-    msg = f"{data['username']}: {data['message']}"
-    send(msg, to=room)
+    room = data.get('room')
+    username = data.get('username', 'Guest')
+    message = data.get('message', '').strip()
+    if not room or not isinstance(room, str):
+        logger.error(f"Invalid room in message: {room}")
+        emit('error', {'message': 'Invalid room'}, to=request.sid)
+        return
+    if not message or len(message) > 200:
+        logger.warning(f"Invalid message from {username} in room {room}: {message}")
+        emit('error', {'message': 'Message empty or too long'}, to=request.sid)
+        return
+    msg = f"{username}: {message}"
+    logger.debug(f"Broadcasting message: {msg} in room {room} (SID: {request.sid})")
+    emit('message', msg, to=room, include_self=True)
 
 if __name__ == '__main__':
     logger.info("Starting local app")
     with app.app_context():
         fetch_all_trends()
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    socketio.run(app, host='127.0.0.1', port=5000, debug=True, allow_unsafe_werkzeug=True)
