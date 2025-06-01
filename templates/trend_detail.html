@@ -1,4 +1,3 @@
-<!-- templates/trend_detail.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -144,6 +143,19 @@
       color: var(--header-bg);
       text-decoration: none;
     }
+
+    .chat-container {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: var(--card-bg);
+    }
+
+    .chat-message {
+      margin-bottom: 5px;
+    }
   </style>
 </head>
 <body class="bg-light">
@@ -187,6 +199,14 @@
           </button>
         </div>
 
+        <h4>Join the Discussion</h4>
+        <div class="chat-container" id="chat-messages"></div>
+        <div class="input-group mb-3">
+          <input type="text" id="username" class="form-control" placeholder="Your username" value="Guest{{ 1000 | random }}" />
+          <input type="text" id="message" class="form-control" placeholder="Type your message..." />
+          <button id="send-message" class="btn btn-primary">Send</button>
+        </div>
+
         <div class="mt-4">
           <a href="/" class="btn btn-secondary mt-4">
             <i class="bi bi-arrow-left-circle me-2"></i> Back to Homepage
@@ -197,15 +217,54 @@
   </main>
 
   <footer>
-    &copy; {{ current_year }} Trendii Now. &nbsp;
+    © {{ current_year }} Trendii Now.  
     <a href="/">Home</a>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
+    const socket = io({
+      path: '/socket.io',
+      transports: ['websocket', 'polling']
+    });
+
+    const trendId = '{{ trend.id }}';
+    let username = document.getElementById('username').value;
+
+    socket.emit('join', { username: username, room: trendId });
+
+    socket.on('message', (msg) => {
+      const chatMessages = document.getElementById('chat-messages');
+      const messageElement = document.createElement('div');
+      messageElement.classList.add('chat-message');
+      messageElement.textContent = msg;
+      chatMessages.appendChild(messageElement);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+
+    document.getElementById('send-message').addEventListener('click', () => {
+      const messageInput = document.getElementById('message');
+      const message = messageInput.value.trim();
+      username = document.getElementById('username').value.trim() || 'Guest';
+      if (message) {
+        socket.emit('message', { username: username, message: message, room: trendId });
+        messageInput.value = '';
+      }
+    });
+
+    document.getElementById('message').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('send-message').click();
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      socket.emit('leave', { username: username, room: trendId });
+    });
+
     document.querySelectorAll('.vote-btn').forEach(button => {
       button.addEventListener('click', () => {
-        const trendId = '{{ trend.id }}';
         const voteType = button.getAttribute('data-type');
 
         fetch('/api/vote', {
