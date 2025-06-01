@@ -22,17 +22,20 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s:%(nam
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key')  # Required for SocketIO
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-here')  # Set in Render
 socketio = SocketIO(
     app,
     cors_allowed_origins=[
         "https://trendiinow.com",
         "https://www.trendiinow.com",
         "https://trendy-wqzi.onrender.com",
-        "http://localhost:5000"  # For local testing
+        "http://localhost:5000"
     ],
+    async_mode='eventlet',
     logger=True,
-    engineio_logger=True
+    engineio_logger=True,
+    ping_timeout=60,
+    ping_interval=25
 )
 
 db_path = '/opt/render/data/trendy.db' if os.getenv('RENDER') else os.path.join(os.path.abspath(os.path.dirname(__file__)), 'trendy.db')
@@ -1259,6 +1262,19 @@ def debug_request():
     logger.debug(f"Request: {request.host}, {request.url}")
     return jsonify({"host": request.host, "url": request.url})
 
+@app.route('/debug-rooms')
+def debug_rooms():
+    try:
+        all_rooms = {}
+        for sid in socketio.server.manager.get_participants('/', None):
+            client_rooms = rooms(sid=sid, namespace='/')
+            all_rooms[sid] = client_rooms
+        logger.debug(f"Active rooms: {all_rooms}")
+        return jsonify({"status": "success", "rooms": all_rooms})
+    except Exception as e:
+        logger.error(f"Error fetching rooms: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @socketio.on('connect')
 def handle_connect():
     logger.debug(f"Client connected: {request.sid}")
@@ -1276,8 +1292,9 @@ def handle_join(data):
         emit('error', {'message': 'Invalid room'}, to=request.sid)
         return
     join_room(room)
-    logger.debug(f"User {username} (SID: {request.sid}) joined room {room}")
-    emit('message', f"{username} entered chat.", to=room, include_self=True)
+    current_rooms = rooms(sid=request.sid)
+    logger.debug(f"User {username} (SID: {request.sid}) joined room {room}. Current rooms: {current_rooms}")
+    emit('message', f"{username} entered chat.", room=room, include_self=True)
 
 @socketio.on('leave')
 def handle_leave(data):
@@ -1289,7 +1306,7 @@ def handle_leave(data):
         return
     leave_room(room)
     logger.debug(f"User {username} (SID: {request.sid}) left room {room}")
-    emit('message', f"{username} left chat.", to=room, include_self=False)
+    emit('message', f"{username} left chat.", room=room, include_self=False)
 
 @socketio.on('message')
 def handle_message(data):
@@ -1306,7 +1323,7 @@ def handle_message(data):
         return
     msg = f"{username}: {message}"
     logger.debug(f"Broadcasting message: {msg} in room {room} (SID: {request.sid})")
-    emit('message', msg, to=room, include_self=True)
+    emit('message', msg, room=room, include_self=True)
 
 if __name__ == '__main__':
     logger.info("Starting local app")
