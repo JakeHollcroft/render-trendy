@@ -180,7 +180,7 @@ def time_ago(timestamp):
         logger.error(f"Error in time_ago: {e}", exc_info=True)
         return "Unknown time"
 
-app.jinja_env.globals.update(time_ago=time_ago)
+app.jinja_env.globals.update(time_ago=time_ago, current_year=datetime.now().year)
 
 def get_trend_of_the_day(trends):
     if not trends:
@@ -964,6 +964,7 @@ def fetch_reuters_trending():
         print(f"Error fetching Reuters trending: {e}")
         return []
 # ---------------------------- AGGREGATE AND CACHE ---------------------------- #
+
 def fetch_all_trends():
     global global_trends, last_fetch_time
     logger.debug("Starting fetch_all_trends")
@@ -1013,7 +1014,11 @@ def fetch_all_trends():
         existing_trend = existing_trends.get(trend_id)
         if existing_trend:
             logger.debug(f"Existing trend {trend_id}: {trend.get('title', 'Untitled')}, timestamp: {existing_trend.timestamp}")
-            trend['timestamp'] = existing_trend.timestamp.isoformat()
+            # Ensure offset-aware timestamp
+            timestamp = existing_trend.timestamp
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            trend['timestamp'] = timestamp.isoformat()
             new_global_trends.append(trend)
         else:
             logger.debug(f"New trend {trend_id}: {trend.get('title', 'Untitled')}")
@@ -1042,7 +1047,17 @@ def fetch_all_trends():
     except Exception as e:
         logger.error(f"Error cleaning trends: {e}", exc_info=True)
 
-    new_global_trends.sort(key=lambda x: datetime.fromisoformat(x['timestamp']), reverse=True)
+    # Sort with offset-aware timestamps
+    try:
+        new_global_trends.sort(
+            key=lambda x: datetime.fromisoformat(x['timestamp']).astimezone(timezone.utc),
+            reverse=True
+        )
+    except Exception as e:
+        logger.error(f"Error sorting trends: {e}", exc_info=True)
+        # Fallback: sort with timestamp strings
+        new_global_trends.sort(key=lambda x: x['timestamp'], reverse=True)
+
     global_trends = new_global_trends[:2000]
     last_fetch_time = now
     logger.debug(f"Total trends: {len(global_trends)}")
@@ -1082,7 +1097,7 @@ def home():
                 'link': t.link,
                 'source': t.source,
                 'source_class': t.source,
-                'timestamp': t.timestamp.isoformat(),
+                'timestamp': t.timestamp.isoformat() if t.timestamp.tzinfo else t.timestamp.replace(tzinfo=timezone.utc).isoformat(),
                 'video': None
             } for t in trends]
             last_fetch_time = now
