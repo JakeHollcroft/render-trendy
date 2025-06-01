@@ -7,7 +7,7 @@ import random
 import threading
 import time
 import logging
-from flask_socketio import SocketIO, join_room, leave_room, send, emit
+from flask_socketio import SocketIO, join_room, leave_room, send, emit, rooms
 from datetime import datetime, timezone, date
 import re
 from collections import Counter
